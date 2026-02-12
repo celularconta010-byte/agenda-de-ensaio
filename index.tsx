@@ -1,0 +1,1 @@
+// Arquivo consolidado no index.html para evitar erros de transpilação no Netlify.

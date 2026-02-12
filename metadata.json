@@ -1,0 +1,7 @@
+{
+  "name": "Agenda de Ensaio",
+  "description": "Um aplicativo completo para gerenciar ensaios musicais, locais de culto e escalas administrativas, com design inspirado na Agenda Musical.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
