@@ -139,26 +139,25 @@
         originalDateStr: '', patternNth: 1, patternWeekday: 0
       });
 
-      // Carregar dados e escutar mudanças
-      useEffect(() => {
-        const fetchData = async () => {
-          if (!isCloudActive) {
-            const saved = localStorage.getItem('agenda_ensaios_data');
-            setRehearsals(saved ? JSON.parse(saved) : []);
-            setLoading(false);
-            return;
-          }
-
-          const { data, error } = await supabase
-            .from('ensaios')
-            .select('*')
-            .order('rawDate', { ascending: true });
-
-          if (error) console.error("Erro ao buscar dados:", error);
-          else setRehearsals(data || []);
+      const fetchData = async () => {
+        if (!isCloudActive) {
+          const saved = localStorage.getItem('agenda_ensaios_data');
+          setRehearsals(saved ? JSON.parse(saved) : []);
           setLoading(false);
-        };
+          return;
+        }
 
+        const { data, error } = await supabase
+          .from('ensaios')
+          .select('*')
+          .order('rawDate', { ascending: true });
+
+        if (error) console.error("Erro ao buscar dados:", error);
+        else setRehearsals(data || []);
+        setLoading(false);
+      };
+
+      useEffect(() => {
         fetchData();
 
         if (isCloudActive) {
@@ -197,6 +196,7 @@
           } else {
             await supabase.from('ensaios').insert([data]);
           }
+          fetchData(); // Atualizar localmente após salvar
         } else {
           const updated = editingId
             ? rehearsals.map(r => r.id === editingId ? { ...data, id: editingId } : r)
@@ -316,7 +316,7 @@
                             <p className="font-bold text-gray-900">{r.dayOfWeek}, {r.date}</p>
                             {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1 rounded border border-orange-200 font-black uppercase">Remarcado</span>}
                           </div>
-                          <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName}</p>
+                          <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName} ({r.city})</p>
                         </div>
                         <div className="text-gray-600 font-semibold text-sm">{r.time}</div>
                       </div>
@@ -364,7 +364,7 @@
                                 <p className="font-bold text-gray-900">{r.dayOfWeek}, {r.date}</p>
                                 {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1 rounded border border-orange-200 uppercase font-black">Remarcado</span>}
                               </div>
-                              <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName}</p>
+                              <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName} ({r.city})</p>
                             </div>
                             <div className="text-gray-600 font-semibold text-sm">{r.time}</div>
                           </div>
