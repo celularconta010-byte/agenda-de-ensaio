@@ -5,6 +5,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agenda de Ensaio</title>
+  <meta name="description" content="Acompanhe a agenda de ensaios musicais de sua cidade de forma prática e rápida.">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Agenda de Ensaio">
+  <meta property="og:description"
+    content="Acompanhe a agenda de ensaios musicais de sua cidade de forma prática e rápida.">
+  <meta property="og:image" content="/icon-512x512.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Agenda de Ensaio">
+  <meta property="twitter:description"
+    content="Acompanhe a agenda de ensaios musicais de sua cidade de forma prática e rápida.">
+  <meta property="twitter:image" content="/icon-512x512.png">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="manifest" href="/manifest.json">
@@ -319,7 +335,7 @@
           const registration = await navigator.serviceWorker.ready;
           const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: 'BKh6y5...' // Substituir por chave pública real do VAPID se necessário
+            applicationServerKey: 'BIPOlsAApB4dLBI79_cm8r3ChKk2_5SGiC8YNAKym9dL35qfWZ1911Dq_BQ-D81677OcDzCczQFA1wjQsBaV0wY'
           });
 
           if (isCloudActive) {
