@@ -7,6 +7,12 @@
   <title>Agenda de Ensaio</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Agenda">
+  <link rel="apple-touch-icon" href="/icon-192x192.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
@@ -68,7 +74,7 @@
     const {
       Music, MapPin, Settings, ChevronRight, Plus, ArrowLeft,
       Trash2, Bell, Navigation, Info, Save, Lock, LogIn,
-      Pencil, CalendarClock, AlertCircle, CloudCheck, CloudOff, Loader2, Repeat, ExternalLink, CalendarDays, ChevronLeft, RefreshCw, CheckCircle2
+      Pencil, CalendarClock, AlertCircle, CloudCheck, CloudOff, Loader2, Repeat, ExternalLink, CalendarDays, ChevronLeft, RefreshCw, CheckCircle2, XCircle
     } = Lucide;
 
     // --- Configuração Supabase ---
@@ -89,7 +95,7 @@
 
     // --- Configurações Auxiliares ---
     const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-    const RECURRENCE_MONTHS = { 'unico': 0, 'bimestral': 2, 'trimestral': 3, 'quadrimestral': 4 };
+    const RECURRENCE_MONTHS = { 'unico': 0, 'mensal': 1, 'bimestral': 2, 'trimestral': 3, 'quadrimestral': 4 };
     const INITIAL_CHURCHES = [
       { id: 'alagoinhas', name: 'Alagoinhas' },
       { id: 'aracas', name: 'Araças' },
@@ -125,35 +131,50 @@
     const App = () => {
       const [activeTab, setActiveTab] = useState('ensaios');
       const [rehearsals, setRehearsals] = useState([]);
+      const [cities, setCities] = useState([]);
       const [loading, setLoading] = useState(true);
       const [selectedRehearsal, setSelectedRehearsal] = useState(null);
       const [browsingCity, setBrowsingCity] = useState(null);
       const [isAdmin, setIsAdmin] = useState(false);
       const [password, setPassword] = useState('');
       const [isAdding, setIsAdding] = useState(false);
+      const [isManagingCities, setIsManagingCities] = useState(false);
       const [editingId, setEditingId] = useState(null);
 
       const [form, setForm] = useState({
-        church: '', city: 'Alagoinhas', date: '', time: '',
+        church: '', city: '', date: '', time: '',
         recurrence: 'unico', locationUrl: '', status: 'normal',
-        originalDateStr: '', patternNth: 1, patternWeekday: 0
+        originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0
       });
+
+      const [cityForm, setCityForm] = useState({ name: '' });
 
       const fetchData = async () => {
         if (!isCloudActive) {
-          const saved = localStorage.getItem('agenda_ensaios_data');
-          setRehearsals(saved ? JSON.parse(saved) : []);
+          const savedRehearsals = localStorage.getItem('agenda_ensaios_data');
+          const savedCities = localStorage.getItem('agenda_cidades_data');
+          setRehearsals(savedRehearsals ? JSON.parse(savedRehearsals) : []);
+          setCities(savedCities ? JSON.parse(savedCities) : INITIAL_CHURCHES);
           setLoading(false);
           return;
         }
 
-        const { data, error } = await supabase
-          .from('ensaios')
-          .select('*')
-          .order('rawDate', { ascending: true });
+        const [rehearsalsResponse, citiesResponse] = await Promise.all([
+          supabase.from('ensaios').select('*').order('rawDate', { ascending: true }),
+          supabase.from('cidades').select('*').order('name', { ascending: true })
+        ]);
 
-        if (error) console.error("Erro ao buscar dados:", error);
-        else setRehearsals(data || []);
+        if (rehearsalsResponse.error) console.error("Erro ensaios:", rehearsalsResponse.error);
+        else setRehearsals(rehearsalsResponse.data || []);
+
+        if (citiesResponse.error) console.error("Erro cidades:", citiesResponse.error);
+        else {
+          setCities(citiesResponse.data || []);
+          if (citiesResponse.data?.length > 0 && !form.city) {
+            setForm(prev => ({ ...prev, city: citiesResponse.data[0].name }));
+          }
+        }
+
         setLoading(false);
       };
 
@@ -186,6 +207,7 @@
           rawDate: form.date,
           status: form.status,
           originalDateStr: form.status === 'remarcado' ? form.originalDateStr : '',
+          suspendedReason: form.status === 'suspenso' ? form.suspendedReason : '',
           patternNth: form.status === 'normal' ? pattern.nth : form.patternNth,
           patternWeekday: form.status === 'normal' ? pattern.weekday : form.patternWeekday
         };
@@ -219,6 +241,7 @@
           ...r,
           status: 'normal',
           originalDateStr: '',
+          suspendedReason: '',
           rawDate: isoDate,
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           dayOfWeek: DAYS[nextDate.getDay()]
@@ -257,20 +280,102 @@
 
       const getPatternLabel = (nth, weekday) => `${nth}º ${DAYS[weekday]}`;
 
+      const handleCitySave = async (e) => {
+        e.preventDefault();
+        if (!cityForm.name) return;
+
+        const slug = cityForm.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
+        const data = { name: cityForm.name, slug };
+
+        if (isCloudActive) {
+          const { error } = await supabase.from('cidades').insert([data]);
+          if (error) alert("Erro ao salvar cidade: " + error.message);
+          else fetchData();
+        } else {
+          const updated = [...cities, { ...data, id: Date.now().toString() }];
+          setCities(updated);
+          localStorage.setItem('agenda_cidades_data', JSON.stringify(updated));
+        }
+        setCityForm({ name: '' });
+      };
+
+      const handleCityDelete = async (id) => {
+        if (!confirm('Deseja excluir esta cidade? Todos os ensaios dela continuarão existindo, mas não aparecerão mais no filtro.')) return;
+
+        if (isCloudActive) {
+          await supabase.from('cidades').delete().eq('id', id);
+          fetchData();
+        } else {
+          const updated = cities.filter(c => c.id !== id);
+          setCities(updated);
+          localStorage.setItem('agenda_cidades_data', JSON.stringify(updated));
+        }
+      };
+
+      const subscribeUser = async () => {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: 'BKh6y5...' // Substituir por chave pública real do VAPID se necessário
+          });
+
+          if (isCloudActive) {
+            await supabase.from('push_subscriptions').insert([{
+              subscription: JSON.parse(JSON.stringify(subscription))
+            }]);
+          }
+          alert("Sincronizado com sucesso!");
+        } catch (error) {
+          console.error("Erro ao inscrever para push:", error);
+          alert("Ativado localmente. Para notificações remotas, publique o app em HTTPS.");
+        }
+      };
+
       return (
         <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative pb-20 shadow-2xl border-x border-gray-200">
           <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50 px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {selectedRehearsal ? <button onClick={() => setSelectedRehearsal(null)} className="text-blue-600"><ArrowLeft size={20} /></button> : activeTab === 'igrejas' && browsingCity ? <button onClick={() => setBrowsingCity(null)} className="text-blue-600"><ChevronLeft size={20} /></button> : null}
+              {selectedRehearsal ? (
+                <button onClick={() => setSelectedRehearsal(null)} className="text-blue-600">
+                  <ArrowLeft size={20} />
+                </button>
+              ) : activeTab === 'igrejas' && browsingCity ? (
+                <button onClick={() => setBrowsingCity(null)} className="text-blue-600">
+                  <ChevronLeft size={20} />
+                </button>
+              ) : null}
               <Music size={24} className="text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-800">{selectedRehearsal ? 'Detalhes' : activeTab === 'ensaios' ? 'Agenda' : browsingCity || 'Cidades'}</h1>
+              <h1 className="text-xl font-bold text-gray-800">
+                {selectedRehearsal ? 'Detalhes' : activeTab === 'ensaios' ? 'Agenda' : browsingCity || 'Cidades'}
+              </h1>
             </div>
             <div className="flex items-center gap-4">
-              {isCloudActive ? <CloudCheck size={18} className="text-green-600" title="Conectado ao Supabase" /> : <CloudOff size={18} className="text-gray-400" title="Usando LocalStorage" />}
-              <div className="relative">
+              {isCloudActive ? (
+                <CloudCheck size={18} className="text-green-600" title="Conectado ao Supabase" />
+              ) : (
+                <CloudOff size={18} className="text-gray-400" title="Usando LocalStorage" />
+              )}
+              <button
+                onClick={async () => {
+                  if (!('Notification' in window)) {
+                    alert("Este navegador não suporta notificações.");
+                    return;
+                  }
+                  const permission = await Notification.requestPermission();
+                  if (permission === 'granted') {
+                    await subscribeUser();
+                  } else {
+                    alert("Notificações bloqueadas pelo usuário.");
+                  }
+                }}
+                className="relative"
+              >
                 <Bell size={20} className={hasRehearsalToday ? "text-blue-600" : "text-gray-400"} />
                 {hasRehearsalToday && <span className="notification-dot"></span>}
-              </div>
+              </button>
             </div>
           </header>
 
@@ -281,12 +386,23 @@
                   <span className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full border border-blue-100 flex items-center gap-1">
                     <Repeat size={10} /> {getPatternLabel(selectedRehearsal.patternNth, selectedRehearsal.patternWeekday)}
                   </span>
-                  {selectedRehearsal.status === 'remarcado' && (
-                    <span className="text-[10px] font-bold text-orange-600 uppercase bg-orange-50 px-2 py-1 rounded-full border border-orange-100 flex items-center gap-1">
-                      <AlertCircle size={10} /> REMARCADO
-                    </span>
-                  )}
                 </div>
+                {selectedRehearsal.status === 'remarcado' && (
+                  <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-2xl border border-orange-100 mb-4 animate-card font-bold text-xs">
+                    <AlertCircle size={16} /> DATA ALTERADA (ERA {selectedRehearsal.originalDateStr})
+                  </div>
+                )}
+
+                {selectedRehearsal.status === 'suspenso' && (
+                  <div className="flex flex-col gap-1 text-red-600 bg-red-50 p-4 rounded-2xl border border-red-100 mb-4 animate-card font-bold text-xs text-center uppercase tracking-wider">
+                    <div className="flex items-center justify-center gap-2">
+                      <XCircle size={18} /> ENSAIO SUSPENSO
+                    </div>
+                    {selectedRehearsal.suspendedReason && (
+                      <p className="text-[10px] text-red-400 mt-1 lowercase first-letter:uppercase italic">"{selectedRehearsal.suspendedReason}"</p>
+                    )}
+                  </div>
+                )}
                 <h2 className="text-3xl font-black text-gray-900 leading-tight">{selectedRehearsal.churchName}</h2>
                 <p className="text-gray-500 mb-6 font-medium flex items-center gap-1"><MapPin size={14} /> {selectedRehearsal.city}</p>
 
@@ -318,11 +434,12 @@
                   <div className="animate-card space-y-4">
                     <h2 className="text-gray-500 font-bold uppercase text-xs tracking-wider">Próximos 15 dias</h2>
                     {upcomingRehearsals.map(r => (
-                      <div key={r.id} onClick={() => setSelectedRehearsal(r)} className="bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98]">
+                      <div key={r.id} onClick={() => setSelectedRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-gray-900">{r.dayOfWeek}, {r.date}</p>
-                            {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1 rounded border border-orange-200 font-black uppercase">Remarcado</span>}
+                            {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase shadow-sm">Remarcado</span>}
+                            {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                           </div>
                           <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName} ({r.city})</p>
                         </div>
@@ -345,7 +462,7 @@
                             defaultValue=""
                           >
                             <option value="" disabled>Selecione a cidade...</option>
-                            {INITIAL_CHURCHES.map(city => (
+                            {cities.map(city => (
                               <option key={city.id} value={city.name}>{city.name}</option>
                             ))}
                           </select>
@@ -369,8 +486,16 @@
                           <div key={r.id} onClick={() => setSelectedRehearsal(r)} className="bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
-                                <p className="font-bold text-gray-900">{r.dayOfWeek}, {r.date}</p>
-                                {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1 rounded border border-orange-200 uppercase font-black">Remarcado</span>}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${r.status === 'suspenso' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{r.dayOfWeek}</span>
+                                    <p className="font-bold text-gray-900">{r.date}</p>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black animate-pulse">Remarcado</span>}
+                                    {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 uppercase font-black">Suspenso</span>}
+                                  </div>
+                                </div>
                               </div>
                               <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName} ({r.city})</p>
                             </div>
@@ -397,105 +522,188 @@
                       </div>
                     ) : (
                       <div className="pb-8">
-                        {isAdding ? (
-                          <form onSubmit={handleSave} className="bg-white p-6 rounded-3xl space-y-4 border border-gray-200 shadow-xl">
-                            <h3 className="text-center font-bold text-blue-600 uppercase text-xs">Dados do Ensaio</h3>
+                        <div className="flex gap-2 mb-6">
+                          <button
+                            onClick={() => setIsManagingCities(false)}
+                            className={`flex-1 py-3 rounded-2xl font-bold text-xs border transition-all ${!isManagingCities ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}
+                          >
+                            ENSAIOS
+                          </button>
+                          <button
+                            onClick={() => setIsManagingCities(true)}
+                            className={`flex-1 py-3 rounded-2xl font-bold text-xs border transition-all ${isManagingCities ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}
+                          >
+                            CIDADES
+                          </button>
+                        </div>
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja</label>
-                              <input placeholder="Ex: Central" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300" value={form.church} onChange={e => setForm({ ...form, church: e.target.value })} />
-                            </div>
+                        {!isManagingCities ? (
+                          <>
+                            {isAdding ? (
+                              <form onSubmit={handleSave} className="bg-white p-6 rounded-3xl space-y-4 border border-gray-200 shadow-xl">
+                                <h3 className="text-center font-bold text-blue-600 uppercase text-xs">Dados do Ensaio</h3>
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Cidade</label>
-                              <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })}>{INITIAL_CHURCHES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Data</label>
-                                <input type="date" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
-                                <input type="time" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
-                              </div>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Recorrência</label>
-                              <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.recurrence} onChange={e => setForm({ ...form, recurrence: e.target.value })}>
-                                <option value="unico">Único</option>
-                                <option value="bimestral">Bimestral (2 em 2 meses)</option>
-                                <option value="trimestral">Trimestral (3 em 3 meses)</option>
-                                <option value="quadrimestral">Quadrimestral (4 em 4 meses)</option>
-                              </select>
-                            </div>
-
-                            <div className="space-y-2 pt-2">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Status do Ensaio</label>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setForm({ ...form, status: 'normal' })}
-                                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs border transition-all ${form.status === 'normal' ? 'bg-green-50 border-green-200 text-green-700 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'}`}
-                                >
-                                  <CheckCircle2 size={16} /> NORMAL
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setForm({ ...form, status: 'remarcado' })}
-                                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-xs border transition-all ${form.status === 'remarcado' ? 'bg-orange-50 border-orange-200 text-orange-700 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'}`}
-                                >
-                                  <AlertCircle size={16} /> REMARCADO
-                                </button>
-                              </div>
-
-                              {form.status === 'remarcado' && (
-                                <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl mt-2 animate-card">
-                                  <div className="flex items-center gap-2 mb-2 text-orange-700">
-                                    <CalendarClock size={16} />
-                                    <label className="text-[10px] font-bold uppercase">Data Original para Aviso</label>
-                                  </div>
-                                  <input
-                                    placeholder="Ex: 15/05 (Aparecerá riscado)"
-                                    className="w-full p-3 bg-white border border-orange-200 rounded-xl outline-none text-orange-700 placeholder:text-orange-300 font-bold text-sm shadow-inner"
-                                    value={form.originalDateStr}
-                                    onChange={e => setForm({ ...form, originalDateStr: e.target.value })}
-                                  />
-                                  <p className="text-[9px] text-orange-600 mt-2 italic font-medium">Os irmãos verão que este ensaio foi alterado desta data original.</p>
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja</label>
+                                  <input placeholder="Ex: Central" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300" value={form.church} onChange={e => setForm({ ...form, church: e.target.value })} />
                                 </div>
-                              )}
-                            </div>
 
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-blue-600 uppercase ml-2 flex items-center gap-1"><MapPin size={10} /> Localização (Endereço ou Link Maps)</label>
-                              <input placeholder="Digite o endereço ou cole o link do Google Maps" className="w-full p-4 bg-blue-50/50 border border-blue-100 rounded-2xl outline-none text-blue-700 text-sm" value={form.locationUrl} onChange={e => setForm({ ...form, locationUrl: e.target.value })} />
-                            </div>
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Cidade</label>
+                                  <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })}>
+                                    {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                  </select>
+                                </div>
 
-                            <div className="flex gap-3 pt-4"><button type="button" onClick={() => setIsAdding(false)} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-500">CANCELAR</button><button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">SALVAR</button></div>
-                          </form>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Data</label>
+                                    <input type="date" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
+                                    <input type="time" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Recorrência</label>
+                                  <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.recurrence} onChange={e => setForm({ ...form, recurrence: e.target.value })}>
+                                    <option value="unico">Único</option>
+                                    <option value="mensal">Mensal</option>
+                                    <option value="bimestral">Bimestral (2 em 2 meses)</option>
+                                    <option value="trimestral">Trimestral (3 em 3 meses)</option>
+                                    <option value="quadrimestral">Quadrimestral (4 em 4 meses)</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-2 pt-2">
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Status do Ensaio</label>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm({ ...form, status: 'normal' })}
+                                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[10px] border transition-all ${form.status === 'normal' ? 'bg-green-50 border-green-200 text-green-700 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'}`}
+                                    >
+                                      <CheckCircle2 size={14} /> NORMAL
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm({ ...form, status: 'remarcado' })}
+                                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[10px] border transition-all ${form.status === 'remarcado' ? 'bg-orange-50 border-orange-200 text-orange-700 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'}`}
+                                    >
+                                      <AlertCircle size={14} /> REMARCADO
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm({ ...form, status: 'suspenso' })}
+                                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[10px] border transition-all ${form.status === 'suspenso' ? 'bg-red-50 border-red-200 text-red-700 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'}`}
+                                    >
+                                      <XCircle size={14} /> SUSPENSO
+                                    </button>
+                                  </div>
+
+                                  {form.status === 'suspenso' && (
+                                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl mt-2 animate-card">
+                                      <div className="flex items-center gap-2 mb-2 text-red-700">
+                                        <XCircle size={16} />
+                                        <label className="text-[10px] font-bold uppercase">Motivo da Suspensão (Opcional)</label>
+                                      </div>
+                                      <input
+                                        placeholder="Ex: Reforma na igreja, festa local..."
+                                        className="w-full p-3 bg-white border border-red-200 rounded-xl outline-none text-red-700 placeholder:text-red-300 font-bold text-sm shadow-inner"
+                                        value={form.suspendedReason}
+                                        onChange={e => setForm({ ...form, suspendedReason: e.target.value })}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {form.status === 'remarcado' && (
+                                    <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl mt-2 animate-card">
+                                      <div className="flex items-center gap-2 mb-2 text-orange-700">
+                                        <CalendarClock size={16} />
+                                        <label className="text-[10px] font-bold uppercase">Data Original para Aviso</label>
+                                      </div>
+                                      <input
+                                        placeholder="Ex: 15/05 (Aparecerá riscado)"
+                                        className="w-full p-3 bg-white border border-orange-200 rounded-xl outline-none text-orange-700 placeholder:text-orange-300 font-bold text-sm shadow-inner"
+                                        value={form.originalDateStr}
+                                        onChange={e => setForm({ ...form, originalDateStr: e.target.value })}
+                                      />
+                                      <p className="text-[9px] text-orange-600 mt-2 italic font-medium">Os irmãos verão que este ensaio foi alterado desta data original.</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-blue-600 uppercase ml-2 flex items-center gap-1"><MapPin size={10} /> Localização (Endereço ou Link Maps)</label>
+                                  <input placeholder="Digite o endereço ou cole o link do Google Maps" className="w-full p-4 bg-blue-50/50 border border-blue-100 rounded-2xl outline-none text-blue-700 text-sm" value={form.locationUrl} onChange={e => setForm({ ...form, locationUrl: e.target.value })} />
+                                </div>
+
+                                <div className="flex gap-3 pt-4"><button type="button" onClick={() => setIsAdding(false)} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-500">CANCELAR</button><button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">SALVAR</button></div>
+                              </form>
+                            ) : (
+                              <div className="space-y-4">
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', date: '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                {rehearsals.map(r => (
+                                  <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
+                                    <div className="truncate pr-4">
+                                      <div className="flex items-center gap-1.5">
+                                        <p className="text-lg font-black text-gray-800 leading-tight">{r.churchName}</p>
+                                        {r.status === 'remarcado' && <AlertCircle size={14} className="text-orange-500 shrink-0" />}
+                                        {r.status === 'suspenso' && <XCircle size={14} className="text-red-500 shrink-0" />}
+                                      </div>
+                                      <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{r.date} • {r.city}</p>
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                      <button title="Avançar Mês (Reset Status)" onClick={() => handleAdvanceRehearsal(r)} className="text-green-600 p-2 hover:bg-green-50 rounded-lg"><RefreshCw size={18} /></button>
+                                      <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, church: r.churchName, date: r.rawDate }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
+                                      <button onClick={async () => { if (confirm('Excluir ensaio?')) { if (isCloudActive) { await supabase.from('ensaios').delete().eq('id', r.id); } else { setRehearsals(rehearsals.filter(x => x.id !== r.id)); } } }} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
                         ) : (
-                          <div className="space-y-4">
-                            <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: 'Alagoinhas', date: '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', locationUrl: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
-                            {rehearsals.map(r => (
-                              <div key={r.id} className="bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md">
-                                <div className="truncate pr-4">
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="text-lg font-black text-gray-800 leading-tight">{r.churchName}</p>
-                                    {r.status === 'remarcado' && <AlertCircle size={14} className="text-orange-500 shrink-0" />}
-                                  </div>
-                                  <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{r.date} • {r.city}</p>
-                                </div>
-                                <div className="flex gap-1 shrink-0">
-                                  <button title="Avançar Mês (Reset Status)" onClick={() => handleAdvanceRehearsal(r)} className="text-green-600 p-2 hover:bg-green-50 rounded-lg"><RefreshCw size={18} /></button>
-                                  <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, church: r.churchName, date: r.rawDate }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
-                                  <button onClick={async () => { if (confirm('Excluir ensaio?')) { if (isCloudActive) { await supabase.from('ensaios').delete().eq('id', r.id); } else { setRehearsals(rehearsals.filter(x => x.id !== r.id)); } } }} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
-                                </div>
+                          <div className="space-y-6">
+                            <form onSubmit={handleCitySave} className="bg-white p-6 rounded-3xl space-y-4 border border-gray-200 shadow-xl">
+                              <h3 className="text-center font-bold text-blue-600 uppercase text-xs">Nova Cidade</h3>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Cidade</label>
+                                <input
+                                  placeholder="Ex: Alagoinhas"
+                                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300 font-bold"
+                                  value={cityForm.name}
+                                  onChange={e => setCityForm({ name: e.target.value })}
+                                />
                               </div>
-                            ))}
+                              <button type="submit" className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+                                <Plus size={20} /> ADICIONAR CIDADE
+                              </button>
+                            </form>
+
+                            <div className="space-y-3">
+                              <h3 className="text-gray-400 font-bold uppercase text-[10px] ml-2 tracking-widest">Cidades Cadastradas</h3>
+                              {cities.map(c => (
+                                <div key={c.id} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100 shadow-sm">
+                                  <p className="font-bold text-gray-700">{c.name}</p>
+                                  <button
+                                    onClick={() => handleCityDelete(c.id)}
+                                    className="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
+
+                        <div className="mt-12 text-center pb-8 border-t border-gray-100 pt-8">
+                          <a href="/privacy.html" target="_blank" className="text-[10px] text-gray-400 font-bold uppercase hover:text-blue-600 transition-colors underline decoration-dotted">Política de Privacidade</a>
+                          <p className="text-[8px] text-gray-300 mt-2 italic">Agenda de Ensaio © 2026</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -517,6 +725,15 @@
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
+
+    // Registrar o Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker registrado!', reg))
+          .catch(err => console.log('Falha ao registrar Service Worker:', err));
+      });
+    }
   </script>
   <script type="module" src="/index.tsx"></script>
 </body>
