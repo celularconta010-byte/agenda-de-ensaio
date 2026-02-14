@@ -3,6 +3,7 @@
     "short_name": "Agenda",
     "description": "Agenda de ensaios musicais",
     "start_url": "/",
+    "id": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#2563eb",
@@ -38,5 +39,21 @@
         "music",
         "utilities"
     ],
-    "lang": "pt-BR"
+    "lang": "pt-BR",
+    "screenshots": [
+        {
+            "src": "/screenshots/mobile.png",
+            "sizes": "1080x1920",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Agenda de Ensaios - Mobile"
+        },
+        {
+            "src": "/screenshots/desktop.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Agenda de Ensaios - Desktop"
+        }
+    ]
 }
