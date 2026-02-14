@@ -144,6 +144,72 @@
       return d;
     };
 
+    const checkAndAdvanceRehearsals = async (items) => {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      let hasUpdates = false;
+
+      const updatedItems = items.map(item => {
+        if (!item.recurrence || item.recurrence === 'unico') return item;
+
+        let rDate = new Date(item.rawDate + 'T00:00:00');
+        if (rDate >= now) return item;
+
+        // Item vencido, calcular próxima data futura
+        let nextDate = rDate;
+        const monthsToAdd = RECURRENCE_MONTHS[item.recurrence] || 0;
+        if (monthsToAdd === 0) return item;
+
+        // Garantir padrão de recorrência
+        const nth = item.patternNth !== undefined ? item.patternNth : getPatternOfDate(item.rawDate).nth;
+        const weekday = item.patternWeekday !== undefined ? item.patternWeekday : getPatternOfDate(item.rawDate).weekday;
+
+        // Loop até encontrar data futura
+        while (nextDate < now) {
+          const currentMonth = nextDate.getMonth();
+          const nextMonthDate = new Date(nextDate.getFullYear(), currentMonth + monthsToAdd, 1);
+          nextDate = getDateFromPattern(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), nth, weekday);
+          if (nextDate.getFullYear() > now.getFullYear() + 5) break;
+        }
+
+        hasUpdates = true;
+        const isoDate = nextDate.toISOString().split('T')[0];
+        return {
+          ...item,
+          status: 'normal',
+          originalDateStr: '',
+          suspendedReason: '',
+          rawDate: isoDate,
+          date: isoDate.split('-').reverse().join('/').substring(0, 5),
+          dayOfWeek: DAYS[nextDate.getDay()],
+          patternNth: nth,
+          patternWeekday: weekday
+        };
+      });
+
+      if (hasUpdates) {
+        if (isCloudActive) {
+          const changedItems = updatedItems.filter((item, index) => item.rawDate !== items[index].rawDate);
+          await Promise.all(changedItems.map(item =>
+            supabase.from('ensaios').update({
+              rawDate: item.rawDate,
+              date: item.date,
+              dayOfWeek: item.dayOfWeek,
+              status: item.status,
+              originalDateStr: item.originalDateStr,
+              suspendedReason: item.suspendedReason,
+              patternNth: item.patternNth,
+              patternWeekday: item.patternWeekday
+            }).eq('id', item.id)
+          ));
+        } else {
+          localStorage.setItem('agenda_ensaios_data', JSON.stringify(updatedItems));
+        }
+      }
+
+      return updatedItems;
+    };
+
     const App = () => {
       const [activeTab, setActiveTab] = useState('ensaios');
       const [rehearsals, setRehearsals] = useState([]);
@@ -169,7 +235,11 @@
         if (!isCloudActive) {
           const savedRehearsals = localStorage.getItem('agenda_ensaios_data');
           const savedCities = localStorage.getItem('agenda_cidades_data');
-          setRehearsals(savedRehearsals ? JSON.parse(savedRehearsals) : []);
+          let localRehearsals = savedRehearsals ? JSON.parse(savedRehearsals) : [];
+
+          localRehearsals = await checkAndAdvanceRehearsals(localRehearsals);
+
+          setRehearsals(localRehearsals);
           setCities(savedCities ? JSON.parse(savedCities) : INITIAL_CHURCHES);
           setLoading(false);
           return;
@@ -181,7 +251,11 @@
         ]);
 
         if (rehearsalsResponse.error) console.error("Erro ensaios:", rehearsalsResponse.error);
-        else setRehearsals(rehearsalsResponse.data || []);
+        else {
+          const loaded = rehearsalsResponse.data || [];
+          const processed = await checkAndAdvanceRehearsals(loaded);
+          setRehearsals(processed);
+        }
 
         if (citiesResponse.error) console.error("Erro cidades:", citiesResponse.error);
         else {
@@ -335,7 +409,7 @@
           const registration = await navigator.serviceWorker.ready;
           const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: 'BIPOlsAApB4dLBI79_cm8r3ChKk2_5SGiC8YNAKym9dL35qfWZ1911Dq_BQ-D81677OcDzCczQFA1wjQsBaV0wY'
+            applicationServerKey: 'BEPoMAPMzPpqD8YbbiwZkx3rVWd2i8bIe5NJ0pgLHDGk-8RLsYIu_FRGw3s0oKvHpbC_D2xZ0IeEjalqe-OJR0A'
           });
 
           if (isCloudActive) {
@@ -453,7 +527,13 @@
                       <div key={r.id} onClick={() => setSelectedRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-bold text-gray-900">{r.dayOfWeek}, {r.date}</p>
+                            <p className="font-bold text-gray-900">
+                              {r.rawDate === new Date().toISOString().split('T')[0] ? (
+                                <span className="text-blue-600 font-black uppercase tracking-wide">HOJE</span>
+                              ) : (
+                                `${r.dayOfWeek}, ${r.date}`
+                              )}
+                            </p>
                             {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase shadow-sm">Remarcado</span>}
                             {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                           </div>
