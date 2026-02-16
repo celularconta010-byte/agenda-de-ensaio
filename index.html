@@ -455,6 +455,14 @@
       const getPatternLabel = (nth, weekday) =>
         nth === -1 ? `Último ${DAYS[weekday]}` : `${nth}º ${DAYS[weekday]}`;
 
+      const RECURRENCE_LABELS = {
+        'unico': 'Único',
+        'mensal': 'Mensal',
+        'bimestral': 'Bimestral',
+        'trimestral': 'Trimestral',
+        'quadrimestral': 'Quadrimestral'
+      };
+
       const MONTHS = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -595,6 +603,8 @@
                 <div className="flex gap-2 mb-4">
                   <span className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full border border-blue-100 flex items-center gap-1">
                     <Repeat size={10} /> {getPatternLabel(selectedRehearsal.patternNth, selectedRehearsal.patternWeekday)}
+                    <span className="mx-1 text-blue-200">|</span>
+                    {RECURRENCE_LABELS[selectedRehearsal.recurrence] || 'Único'}
                   </span>
                 </div>
                 {selectedRehearsal.status === 'remarcado' && (
