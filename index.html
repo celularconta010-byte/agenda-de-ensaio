@@ -632,7 +632,15 @@
                   </div>
                 )}
 
-                <button onClick={() => window.open(selectedRehearsal.locationUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedRehearsal.churchName + ' ' + selectedRehearsal.city)}`, '_blank')} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 mb-4 shadow-lg active:scale-95 transition-all"><Navigation size={20} /> VER NO MAPA</button>
+                {selectedRehearsal.locationUrl ? (
+                  <button onClick={() => window.open(selectedRehearsal.locationUrl, '_blank')} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 mb-4 shadow-lg active:scale-95 transition-all">
+                    <Navigation size={20} /> VER NO MAPA
+                  </button>
+                ) : (
+                  <div className="w-full bg-gray-100 text-gray-400 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 mb-4 border border-gray-200 cursor-not-allowed uppercase text-sm">
+                    <XCircle size={20} /> Rota não cadastrada
+                  </div>
+                )}
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200">
                   <h4 className="text-blue-600 font-bold text-[10px] uppercase mb-2 flex items-center gap-1"><Info size={14} /> Versículo</h4>
                   <p className="text-gray-700 text-sm italic">"Louvai ao Senhor, porque ele é bom. Salmos 106:1"</p>
