@@ -220,7 +220,7 @@
           status: 'normal',
           originalDateStr: '',
           suspendedReason: '',
-          overrideDate: '',
+          overrideDate: null,
           rawDate: isoDate,
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           dayOfWeek: DAYS[nextDate.getDay()],
@@ -242,7 +242,8 @@
               suspendedReason: item.suspendedReason,
               patternNth: item.patternNth,
               patternWeekday: item.patternWeekday,
-              referenceMonth: item.referenceMonth
+              referenceMonth: item.referenceMonth,
+              overrideDate: item.overrideDate
             }).eq('id', item.id)
           ));
         } else {
@@ -268,7 +269,7 @@
       const [editingId, setEditingId] = useState(null);
 
       const [form, setForm] = useState({
-        church: '', city: '', time: '',
+        churchName: '', city: '', time: '',
         recurrence: 'unico', locationUrl: '', status: 'normal',
         originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0,
         referenceMonth: new Date().getMonth(), overrideDate: ''
@@ -351,7 +352,7 @@
         e.preventDefault();
 
         // Validações
-        if (!form.church.trim()) {
+        if (!form.churchName.trim()) {
           alert("Por favor, preencha o Nome da Igreja.");
           return;
         }
@@ -402,7 +403,7 @@
           dayOfWeek: DAYS[nextDate.getDay()],
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           time: form.time,
-          churchName: form.church.toUpperCase().trim(),
+          churchName: form.churchName.toUpperCase().trim(),
           city: form.city,
           recurrence: form.recurrence,
           locationUrl: form.locationUrl,
@@ -413,7 +414,7 @@
           patternNth: form.patternNth,
           patternWeekday: form.patternWeekday,
           referenceMonth: form.referenceMonth,
-          overrideDate: form.overrideDate
+          overrideDate: form.overrideDate || null
         };
 
         if (isCloudActive) {
@@ -459,7 +460,7 @@
           ...r,
           originalDateStr: '',
           suspendedReason: '',
-          overrideDate: '',
+          overrideDate: null,
           rawDate: isoDate,
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           dayOfWeek: DAYS[nextDate.getDay()]
@@ -834,7 +835,15 @@
 
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja <span className="text-red-500">*</span></label>
-                                  <input placeholder="Ex: CENTRAL" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300 uppercase" value={form.church} onChange={e => setForm({ ...form, church: e.target.value.toUpperCase() })} />
+                                  <input
+                                    placeholder="Ex: CENTRAL"
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300 uppercase font-bold"
+                                    value={form.churchName || ''}
+                                    onChange={e => {
+                                      const val = e.target.value.toUpperCase();
+                                      setForm(prev => ({ ...prev, churchName: val }));
+                                    }}
+                                  />
                                 </div>
 
                                 <div className="space-y-1">
@@ -996,7 +1005,7 @@
                               </form>
                             ) : (
                               <div className="space-y-4">
-                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ churchName: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
                                 {rehearsals.map(r => (
                                   <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                                     <div className="truncate pr-4">
@@ -1009,7 +1018,7 @@
                                     </div>
                                     <div className="flex gap-1 shrink-0">
                                       <button title="Avançar Mês (Reset Status)" onClick={() => handleAdvanceRehearsal(r)} className="text-green-600 p-2 hover:bg-green-50 rounded-lg"><RefreshCw size={18} /></button>
-                                      <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, church: r.churchName }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
+                                      <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, churchName: r.churchName }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
                                       <button onClick={async () => { if (confirm('Excluir ensaio?')) { if (isCloudActive) { await supabase.from('ensaios').delete().eq('id', r.id); } else { setRehearsals(rehearsals.filter(x => x.id !== r.id)); } } }} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
                                     </div>
                                   </div>
