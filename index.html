@@ -139,6 +139,17 @@
         return d;
       }
 
+      // Lógica para posições fixas (1º, 2º, 3º, 4º, 5º)
+      let d = new Date(year, month, 1);
+      let count = 0;
+      while (d.getMonth() === month) {
+        if (d.getDay() === weekday) {
+          count++;
+          if (count === nth) return d;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+
       // Fallback: se não encontrar (ex: pedir 5º mas só tem 4), pegar o último
       d.setDate(d.getDate() - 1);
       while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
@@ -362,12 +373,26 @@
         };
 
         if (isCloudActive) {
-          if (editingId) {
-            await supabase.from('ensaios').update(data).eq('id', editingId);
-          } else {
-            await supabase.from('ensaios').insert([data]);
+          try {
+            let res;
+            if (editingId) {
+              res = await supabase.from('ensaios').update(data).eq('id', editingId);
+            } else {
+              res = await supabase.from('ensaios').insert([data]);
+            }
+
+            if (res.error) {
+              console.error("Erro Supabase:", res.error);
+              alert("Erro ao salvar no banco de dados: " + res.error.message);
+              return;
+            }
+
+            fetchData();
+          } catch (err) {
+            console.error("Erro inesperado:", err);
+            alert("Ocorreu um erro inesperado ao salvar: " + err.message);
+            return;
           }
-          fetchData(); // Atualizar localmente após salvar
         } else {
           const updated = editingId
             ? rehearsals.map(r => r.id === editingId ? { ...data, id: editingId } : r)
