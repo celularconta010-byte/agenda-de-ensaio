@@ -146,6 +146,7 @@
     };
 
     const getNextValidMonth = (currentYear, currentMonth, monthsToAdd, referenceMonth) => {
+      if (monthsToAdd <= 0) return { year: currentYear, month: currentMonth };
       let diff = (currentMonth - (referenceMonth || 0)) % monthsToAdd;
       if (diff < 0) diff += monthsToAdd;
       let monthsToNext = (monthsToAdd - diff) % monthsToAdd;
