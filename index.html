@@ -120,6 +120,19 @@
       { id: 'ouricangas', name: 'Ouriçangas' },
     ];
 
+    const BIBLE_VERSES = [
+      { text: "Louvai ao Senhor, porque ele é bom. Salmos 106:1" },
+      { text: "Tudo o que tem fôlego louve ao Senhor. Salmos 150:6" },
+      { text: "Cantai ao Senhor um cântico novo, cantai ao Senhor todos os moradores da terra. Salmos 96:1" },
+      { text: "O Senhor é o meu pastor; nada me faltará. Salmos 23:1" },
+      { text: "Elevo os meus olhos para os montes; de onde me virá o socorro? Salmos 121:1" },
+      { text: "Pois o Senhor dá a sabedoria; da sua boca procedem o conhecimento e o entendimento. Provérbios 2:6" },
+      { text: "Alegrei-me quando me disseram: Vamos à casa do Senhor. Salmos 122:1" },
+      { text: "O coração alegre aformoseia o rosto. Provérbios 15:13" },
+      { text: "A tua palavra é lâmpada que ilumina os meus passos e luz que clareia o meu caminho. Salmos 119:105" },
+      { text: "Deem graças ao Senhor, porque ele é bom; o seu amor dura para sempre. Salmos 136:1" }
+    ];
+
     // --- Funções de Lógica de Data Padrão ---
     const getPatternOfDate = (dateStr) => {
       const d = new Date(dateStr + 'T00:00:00');
@@ -245,6 +258,7 @@
       const [cities, setCities] = useState([]);
       const [loading, setLoading] = useState(true);
       const [selectedRehearsal, setSelectedRehearsal] = useState(null);
+      const [currentVerse, setCurrentVerse] = useState(BIBLE_VERSES[0]);
       const [browsingCity, setBrowsingCity] = useState(null);
       const [isAdmin, setIsAdmin] = useState(false);
       const [password, setPassword] = useState('');
@@ -260,6 +274,14 @@
       });
 
       const [cityForm, setCityForm] = useState({ name: '' });
+
+      const handleSelectRehearsal = (rehearsal) => {
+        if (rehearsal) {
+          const randomIndex = Math.floor(Math.random() * BIBLE_VERSES.length);
+          setCurrentVerse(BIBLE_VERSES[randomIndex]);
+        }
+        setSelectedRehearsal(rehearsal);
+      };
 
       const fetchData = async () => {
         if (!isCloudActive) {
@@ -530,7 +552,7 @@
           <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50 px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {selectedRehearsal ? (
-                <button onClick={() => setSelectedRehearsal(null)} className="text-blue-600">
+                <button onClick={() => handleSelectRehearsal(null)} className="text-blue-600">
                   <ArrowLeft size={20} />
                 </button>
               ) : activeTab === 'igrejas' && browsingCity ? (
@@ -653,7 +675,7 @@
                 )}
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200">
                   <h4 className="text-blue-600 font-bold text-[10px] uppercase mb-2 flex items-center gap-1"><Info size={14} /> Versículo</h4>
-                  <p className="text-gray-700 text-sm italic">"Louvai ao Senhor, porque ele é bom. Salmos 106:1"</p>
+                  <p className="text-gray-700 text-sm italic">"{currentVerse.text}"</p>
                 </div>
               </div>
             ) : (
@@ -662,7 +684,7 @@
                   <div className="animate-card space-y-4">
                     <h2 className="text-gray-500 font-bold uppercase text-xs tracking-wider">Próximos 15 dias</h2>
                     {upcomingRehearsals.map(r => (
-                      <div key={r.id} onClick={() => setSelectedRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
+                      <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-gray-900">
@@ -717,7 +739,7 @@
                           <button onClick={() => setBrowsingCity(null)} className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full">Trocar Cidade</button>
                         </div>
                         {cityRehearsals.map(r => (
-                          <div key={r.id} onClick={() => setSelectedRehearsal(r)} className="bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                          <div key={r.id} onClick={() => handleSelectRehearsal(r)} className="bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <div className="flex items-center justify-between">
