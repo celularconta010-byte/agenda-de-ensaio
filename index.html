@@ -130,6 +130,16 @@
     };
 
     const getDateFromPattern = (year, month, nth, weekday) => {
+      // Se nth = -1, buscar o ÚLTIMO daquele dia da semana no mês
+      if (nth === -1) {
+        let d = new Date(year, month + 1, 0); // Último dia do mês
+        while (d.getDay() !== weekday) {
+          d.setDate(d.getDate() - 1);
+        }
+        return d;
+      }
+
+      // Lógica para posições fixas (1º, 2º, 3º, 4º, 5º)
       let d = new Date(year, month, 1);
       let count = 0;
       while (d.getMonth() === month) {
@@ -139,6 +149,8 @@
         }
         d.setDate(d.getDate() + 1);
       }
+
+      // Fallback: se não encontrar (ex: pedir 5º mas só tem 4), pegar o último
       d.setDate(d.getDate() - 1);
       while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
       return d;
@@ -224,7 +236,7 @@
       const [editingId, setEditingId] = useState(null);
 
       const [form, setForm] = useState({
-        church: '', city: '', date: '', time: '',
+        church: '', city: '', time: '',
         recurrence: 'unico', locationUrl: '', status: 'normal',
         originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0
       });
@@ -283,23 +295,46 @@
 
       const handleSave = async (e) => {
         e.preventDefault();
-        if (!form.church || !form.date || !form.time) return;
-        const pattern = getPatternOfDate(form.date);
-        const dateObj = new Date(form.date + 'T00:00:00');
+        if (!form.church || !form.time) return;
+
+        // Calcular a próxima data baseada no padrão escolhido
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        let nextDate = getDateFromPattern(
+          now.getFullYear(),
+          now.getMonth(),
+          form.patternNth,
+          form.patternWeekday
+        );
+
+        // Se a data calculada já passou, pegar o próximo período de recorrência
+        if (nextDate < now) {
+          const monthsToAdd = RECURRENCE_MONTHS[form.recurrence] || 1;
+          const futureMonth = new Date(now.getFullYear(), now.getMonth() + monthsToAdd, 1);
+          nextDate = getDateFromPattern(
+            futureMonth.getFullYear(),
+            futureMonth.getMonth(),
+            form.patternNth,
+            form.patternWeekday
+          );
+        }
+
+        const isoDate = nextDate.toISOString().split('T')[0];
+
         const data = {
-          dayOfWeek: DAYS[dateObj.getDay()],
-          date: form.date.split('-').reverse().join('/').substring(0, 5),
+          dayOfWeek: DAYS[nextDate.getDay()],
+          date: isoDate.split('-').reverse().join('/').substring(0, 5),
           time: form.time,
           churchName: form.church,
           city: form.city,
           recurrence: form.recurrence,
           locationUrl: form.locationUrl,
-          rawDate: form.date,
+          rawDate: isoDate,
           status: form.status,
           originalDateStr: form.status === 'remarcado' ? form.originalDateStr : '',
           suspendedReason: form.status === 'suspenso' ? form.suspendedReason : '',
-          patternNth: form.status === 'normal' ? pattern.nth : form.patternNth,
-          patternWeekday: form.status === 'normal' ? pattern.weekday : form.patternWeekday
+          patternNth: form.patternNth,
+          patternWeekday: form.patternWeekday
         };
 
         if (isCloudActive) {
@@ -368,7 +403,8 @@
         return rehearsals.some(r => r.rawDate === todayStr);
       }, [rehearsals]);
 
-      const getPatternLabel = (nth, weekday) => `${nth}º ${DAYS[weekday]}`;
+      const getPatternLabel = (nth, weekday) =>
+        nth === -1 ? `Último ${DAYS[weekday]}` : `${nth}º ${DAYS[weekday]}`;
 
       const handleCitySave = async (e) => {
         e.preventDefault();
@@ -653,13 +689,37 @@
 
                                 <div className="grid grid-cols-2 gap-3">
                                   <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Data</label>
-                                    <input type="date" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Posição</label>
+                                    <select
+                                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none"
+                                      value={form.patternNth}
+                                      onChange={e => setForm({ ...form, patternNth: parseInt(e.target.value) })}
+                                    >
+                                      <option value="1">1º</option>
+                                      <option value="2">2º</option>
+                                      <option value="3">3º</option>
+                                      <option value="4">4º</option>
+                                      <option value="5">5º</option>
+                                      <option value="-1">Último</option>
+                                    </select>
                                   </div>
                                   <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
-                                    <input type="time" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Dia da Semana</label>
+                                    <select
+                                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none"
+                                      value={form.patternWeekday}
+                                      onChange={e => setForm({ ...form, patternWeekday: parseInt(e.target.value) })}
+                                    >
+                                      {DAYS.map((day, idx) => (
+                                        <option key={idx} value={idx}>{day}</option>
+                                      ))}
+                                    </select>
                                   </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
+                                  <input type="time" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
                                 </div>
 
                                 <div className="space-y-1">
@@ -740,7 +800,7 @@
                               </form>
                             ) : (
                               <div className="space-y-4">
-                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', date: '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0 }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
                                 {rehearsals.map(r => (
                                   <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                                     <div className="truncate pr-4">
@@ -753,7 +813,7 @@
                                     </div>
                                     <div className="flex gap-1 shrink-0">
                                       <button title="Avançar Mês (Reset Status)" onClick={() => handleAdvanceRehearsal(r)} className="text-green-600 p-2 hover:bg-green-50 rounded-lg"><RefreshCw size={18} /></button>
-                                      <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, church: r.churchName, date: r.rawDate }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
+                                      <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, church: r.churchName }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
                                       <button onClick={async () => { if (confirm('Excluir ensaio?')) { if (isCloudActive) { await supabase.from('ensaios').delete().eq('id', r.id); } else { setRehearsals(rehearsals.filter(x => x.id !== r.id)); } } }} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
                                     </div>
                                   </div>
