@@ -220,6 +220,7 @@
           status: 'normal',
           originalDateStr: '',
           suspendedReason: '',
+          overrideDate: '',
           rawDate: isoDate,
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           dayOfWeek: DAYS[nextDate.getDay()],
@@ -270,10 +271,23 @@
         church: '', city: '', time: '',
         recurrence: 'unico', locationUrl: '', status: 'normal',
         originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0,
-        referenceMonth: new Date().getMonth()
+        referenceMonth: new Date().getMonth(), overrideDate: ''
       });
 
       const [cityForm, setCityForm] = useState({ name: '' });
+
+      const nextGradeDate = useMemo(() => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const monthsToAdd = RECURRENCE_MONTHS[form.recurrence] || 1;
+        const start = getNextValidMonth(now.getFullYear(), now.getMonth(), monthsToAdd, form.referenceMonth);
+        let d = getDateFromPattern(start.year, start.month, form.patternNth, form.patternWeekday);
+        if (d < now) {
+          const next = getNextValidMonth(start.year, start.month + 1, monthsToAdd, form.referenceMonth);
+          d = getDateFromPattern(next.year, next.month, form.patternNth, form.patternWeekday);
+        }
+        return d.toLocaleDateString('pt-BR').substring(0, 5);
+      }, [form.recurrence, form.referenceMonth, form.patternNth, form.patternWeekday]);
 
       const handleSelectRehearsal = (rehearsal) => {
         if (rehearsal) {
@@ -357,22 +371,29 @@
         const monthsToAdd = RECURRENCE_MONTHS[form.recurrence] || 1;
         const start = getNextValidMonth(now.getFullYear(), now.getMonth(), monthsToAdd, form.referenceMonth);
 
-        let nextDate = getDateFromPattern(
-          start.year,
-          start.month,
-          form.patternNth,
-          form.patternWeekday
-        );
+        let nextDate;
 
-        // Se a data calculada já passou, pegar o próximo período de recorrência
-        if (nextDate < now) {
-          const next = getNextValidMonth(start.year, start.month + 1, monthsToAdd, form.referenceMonth);
+        if (form.overrideDate) {
+          nextDate = new Date(form.overrideDate + 'T00:00:00');
+        } else {
+          // Lógica para posições fixas (1º, 2º, 3º, 4º, 5º)
           nextDate = getDateFromPattern(
-            next.year,
-            next.month,
+            start.year,
+            start.month,
             form.patternNth,
             form.patternWeekday
           );
+
+          // Se a data calculada já passou, pegar o próximo período de recorrência
+          if (nextDate < now) {
+            const next = getNextValidMonth(start.year, start.month + 1, monthsToAdd, form.referenceMonth);
+            nextDate = getDateFromPattern(
+              next.year,
+              next.month,
+              form.patternNth,
+              form.patternWeekday
+            );
+          }
         }
 
         const isoDate = nextDate.toISOString().split('T')[0];
@@ -391,7 +412,8 @@
           suspendedReason: form.status === 'suspenso' ? form.suspendedReason : '',
           patternNth: form.patternNth,
           patternWeekday: form.patternWeekday,
-          referenceMonth: form.referenceMonth
+          referenceMonth: form.referenceMonth,
+          overrideDate: form.overrideDate
         };
 
         if (isCloudActive) {
@@ -435,9 +457,9 @@
 
         const nextData = {
           ...r,
-          status: 'normal',
           originalDateStr: '',
           suspendedReason: '',
+          overrideDate: '',
           rawDate: isoDate,
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           dayOfWeek: DAYS[nextDate.getDay()]
@@ -630,8 +652,27 @@
                   </span>
                 </div>
                 {selectedRehearsal.status === 'remarcado' && (
-                  <div className="flex items-center gap-2 text-orange-600 bg-orange-50 p-3 rounded-2xl border border-orange-100 mb-4 animate-card font-bold text-xs">
-                    <AlertCircle size={16} /> DATA ALTERADA (ERA {selectedRehearsal.originalDateStr})
+                  <div className="mb-4 p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-3 animate-card">
+                    <CalendarClock size={20} className="text-orange-500 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-orange-800 uppercase mb-0.5">Ensaio Remarcado</p>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-[10px] text-orange-700 font-medium italic">
+                          Seguindo a grade, este ensaio seria no dia **{
+                            (() => {
+                              const d = new Date(selectedRehearsal.rawDate + 'T00:00:00');
+                              const gradeDate = getDateFromPattern(d.getFullYear(), d.getMonth(), selectedRehearsal.patternNth, selectedRehearsal.patternWeekday);
+                              return gradeDate.toLocaleDateString('pt-BR').substring(0, 5);
+                            })()
+                          }** ({getPatternLabel(selectedRehearsal.patternNth, selectedRehearsal.patternWeekday)}).
+                        </p>
+                        {selectedRehearsal.originalDateStr && (
+                          <div className="mt-1 p-2 bg-white/50 rounded-lg border border-orange-100 text-xs text-orange-800 font-semibold italic">
+                            "{selectedRehearsal.originalDateStr}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -654,15 +695,7 @@
                   <div><p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Dia</p><p className="font-bold text-gray-800">{selectedRehearsal.dayOfWeek}</p></div>
                 </div>
 
-                {selectedRehearsal.status === 'remarcado' && selectedRehearsal.originalDateStr && (
-                  <div className="mb-6 p-4 bg-orange-50/50 rounded-2xl border border-orange-100 flex items-start gap-3">
-                    <CalendarClock size={20} className="text-orange-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-orange-800 uppercase mb-0.5">Remarcado</p>
-                      <p className="text-xs text-orange-700 font-medium italic">Data original: <span className="line-through">{selectedRehearsal.originalDateStr}</span></p>
-                    </div>
-                  </div>
-                )}
+
 
                 {selectedRehearsal.locationUrl ? (
                   <button onClick={() => window.open(selectedRehearsal.locationUrl, '_blank')} className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 mb-4 shadow-lg active:scale-95 transition-all">
@@ -915,20 +948,44 @@
 
                                   {form.status === 'remarcado' && (
                                     <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl mt-2 animate-card">
+                                      <div className="flex items-center justify-between mb-3 border-b border-orange-100 pb-2">
+                                        <div className="flex items-center gap-2 text-orange-700">
+                                          <CalendarClock size={16} />
+                                          <label className="text-[10px] font-bold uppercase tracking-wider">Configuração da Remarcação</label>
+                                        </div>
+                                        <div className="bg-orange-600 text-white px-3 py-1 rounded-full text-[10px] font-black shadow-sm">
+                                          GRADE: {nextGradeDate}
+                                        </div>
+                                      </div>
+
                                       <div className="flex items-center gap-2 mb-2 text-orange-700">
-                                        <CalendarClock size={16} />
-                                        <label className="text-[10px] font-bold uppercase">Data Original para Aviso</label>
+                                        <label className="text-[10px] font-bold uppercase">Motivo da Alteração (Opcional)</label>
                                       </div>
                                       <input
-                                        placeholder="Ex: 15/05 (Aparecerá riscado)"
+                                        placeholder="Ex: Antecipado devido ao feriado..."
                                         className="w-full p-3 bg-white border border-orange-200 rounded-xl outline-none text-orange-700 placeholder:text-orange-300 font-bold text-sm shadow-inner"
                                         value={form.originalDateStr}
                                         onChange={e => setForm({ ...form, originalDateStr: e.target.value })}
                                       />
-                                      <p className="text-[9px] text-orange-600 mt-2 italic font-medium">Os irmãos verão que este ensaio foi alterado desta data original.</p>
+                                      <p className="text-[9px] text-orange-600 mt-2 italic font-medium">Os irmãos verão que o ensaio mudou por este motivo.</p>
                                     </div>
                                   )}
                                 </div>
+
+                                {form.status === 'remarcado' && (
+                                  <div className="space-y-1 animate-card">
+                                    <label className="text-[10px] font-bold text-orange-400 uppercase ml-2 flex items-center gap-1">
+                                      <CalendarDays size={12} className="text-orange-500" /> Nova Data do Ensaio
+                                    </label>
+                                    <input
+                                      type="date"
+                                      className="w-full p-4 bg-orange-50/30 border border-orange-100 rounded-2xl outline-none focus:border-orange-300 font-bold text-orange-700"
+                                      value={form.overrideDate || ''}
+                                      onChange={e => setForm({ ...form, overrideDate: e.target.value })}
+                                    />
+                                    <p className="text-[9px] text-orange-400 ml-2 italic">Escolha o novo dia em que o ensaio será realizado.</p>
+                                  </div>
+                                )}
 
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-blue-600 uppercase ml-2 flex items-center gap-1"><MapPin size={10} /> Localização (Endereço ou Link Maps)</label>
@@ -939,7 +996,7 @@
                               </form>
                             ) : (
                               <div className="space-y-4">
-                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth() }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
                                 {rehearsals.map(r => (
                                   <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                                     <div className="truncate pr-4">
