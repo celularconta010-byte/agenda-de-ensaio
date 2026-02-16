@@ -301,7 +301,20 @@
 
       const handleSave = async (e) => {
         e.preventDefault();
-        if (!form.church || !form.time) return;
+
+        // Validações
+        if (!form.church.trim()) {
+          alert("Por favor, preencha o Nome da Igreja.");
+          return;
+        }
+        if (!form.city) {
+          alert("Por favor, selecione uma Cidade.");
+          return;
+        }
+        if (!form.time) {
+          alert("Por favor, informe o Horário.");
+          return;
+        }
 
         // Calcular a próxima data baseada no padrão escolhido
         const now = new Date();
@@ -423,7 +436,10 @@
 
       const handleCitySave = async (e) => {
         e.preventDefault();
-        if (!cityForm.name) return;
+        if (!cityForm.name.trim()) {
+          alert("Por favor, informe o nome da cidade.");
+          return;
+        }
 
         const slug = cityForm.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
         const data = { name: cityForm.name, slug };
@@ -718,12 +734,12 @@
                                 <h3 className="text-center font-bold text-blue-600 uppercase text-xs">Dados do Ensaio</h3>
 
                                 <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja</label>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja <span className="text-red-500">*</span></label>
                                   <input placeholder="Ex: Central" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300" value={form.church} onChange={e => setForm({ ...form, church: e.target.value })} />
                                 </div>
 
                                 <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Cidade</label>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Cidade <span className="text-red-500">*</span></label>
                                   <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })}>
                                     {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                   </select>
@@ -760,7 +776,7 @@
                                 </div>
 
                                 <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora</label>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Hora <span className="text-red-500">*</span></label>
                                   <input type="time" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
                                 </div>
 
@@ -883,7 +899,7 @@
                             <form onSubmit={handleCitySave} className="bg-white p-6 rounded-3xl space-y-4 border border-gray-200 shadow-xl">
                               <h3 className="text-center font-bold text-blue-600 uppercase text-xs">Nova Cidade</h3>
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Cidade</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Cidade <span className="text-red-500">*</span></label>
                                 <input
                                   placeholder="Ex: Alagoinhas"
                                   className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300 font-bold"
