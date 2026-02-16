@@ -278,17 +278,22 @@
       const [cityForm, setCityForm] = useState({ name: '' });
 
       const nextGradeDate = useMemo(() => {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
+        // Se estamos editando, queremos a grade DAQUELE mês. 
+        // Se é novo, queremos a PRÓXIMA grade a partir de hoje.
+        const baseDate = editingId && form.rawDate ? new Date(form.rawDate + 'T00:00:00') : new Date();
+        if (!editingId) baseDate.setHours(0, 0, 0, 0);
+
         const monthsToAdd = RECURRENCE_MONTHS[form.recurrence] || 1;
-        const start = getNextValidMonth(now.getFullYear(), now.getMonth(), monthsToAdd, form.referenceMonth);
+        const start = getNextValidMonth(baseDate.getFullYear(), baseDate.getMonth(), monthsToAdd, form.referenceMonth);
         let d = getDateFromPattern(start.year, start.month, form.patternNth, form.patternWeekday);
-        if (d < now) {
+
+        // Se estamos criando novo e a data já passou hoje, pula pra próxima
+        if (!editingId && d < baseDate) {
           const next = getNextValidMonth(start.year, start.month + 1, monthsToAdd, form.referenceMonth);
           d = getDateFromPattern(next.year, next.month, form.patternNth, form.patternWeekday);
         }
         return d.toLocaleDateString('pt-BR').substring(0, 5);
-      }, [form.recurrence, form.referenceMonth, form.patternNth, form.patternWeekday]);
+      }, [form.recurrence, form.referenceMonth, form.patternNth, form.patternWeekday, form.rawDate, editingId]);
 
       const handleSelectRehearsal = (rehearsal) => {
         if (rehearsal) {
@@ -662,7 +667,9 @@
                           Seguindo a grade, este ensaio seria no dia **{
                             (() => {
                               const d = new Date(selectedRehearsal.rawDate + 'T00:00:00');
-                              const gradeDate = getDateFromPattern(d.getFullYear(), d.getMonth(), selectedRehearsal.patternNth, selectedRehearsal.patternWeekday);
+                              const monthsToAdd = RECURRENCE_MONTHS[selectedRehearsal.recurrence] || 1;
+                              const start = getNextValidMonth(d.getFullYear(), d.getMonth(), monthsToAdd, selectedRehearsal.referenceMonth);
+                              const gradeDate = getDateFromPattern(start.year, start.month, selectedRehearsal.patternNth, selectedRehearsal.patternWeekday);
                               return gradeDate.toLocaleDateString('pt-BR').substring(0, 5);
                             })()
                           }** ({getPatternLabel(selectedRehearsal.patternNth, selectedRehearsal.patternWeekday)}).
