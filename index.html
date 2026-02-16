@@ -90,7 +90,7 @@
     const {
       Music, MapPin, Settings, ChevronRight, Plus, ArrowLeft,
       Trash2, Bell, Navigation, Info, Save, Lock, LogIn,
-      Pencil, CalendarClock, AlertCircle, CloudCheck, CloudOff, Loader2, Repeat, ExternalLink, CalendarDays, ChevronLeft, RefreshCw, CheckCircle2, XCircle
+      Pencil, CalendarClock, AlertCircle, CloudCheck, CloudOff, Loader2, Repeat, ExternalLink, CalendarDays, ChevronLeft, RefreshCw, CheckCircle2, XCircle, Share2
     } = Lucide;
 
     // --- Configuração Supabase ---
@@ -484,6 +484,33 @@
               ) : (
                 <CloudOff size={18} className="text-gray-400" title="Usando LocalStorage" />
               )}
+              <button
+                onClick={async () => {
+                  const shareData = {
+                    title: 'Agenda de Ensaio',
+                    text: 'Acompanhe a agenda de ensaios musicais de forma prática e rápida!',
+                    url: 'https://play.google.com/store/apps/details?id=com.agendadeensaio.app'
+                  };
+
+                  try {
+                    if (navigator.share) {
+                      await navigator.share(shareData);
+                    } else {
+                      // Fallback: copiar link para clipboard
+                      await navigator.clipboard.writeText(shareData.url);
+                      alert('Link copiado para a área de transferência!');
+                    }
+                  } catch (error) {
+                    if (error.name !== 'AbortError') {
+                      console.error('Erro ao compartilhar:', error);
+                    }
+                  }
+                }}
+                className="relative"
+                title="Compartilhar app"
+              >
+                <Share2 size={20} className="text-blue-600" />
+              </button>
               <button
                 onClick={async () => {
                   if (!('Notification' in window)) {
