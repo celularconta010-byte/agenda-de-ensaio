@@ -139,21 +139,24 @@
         return d;
       }
 
-      // Lógica para posições fixas (1º, 2º, 3º, 4º, 5º)
-      let d = new Date(year, month, 1);
-      let count = 0;
-      while (d.getMonth() === month) {
-        if (d.getDay() === weekday) {
-          count++;
-          if (count === nth) return d;
-        }
-        d.setDate(d.getDate() + 1);
-      }
-
       // Fallback: se não encontrar (ex: pedir 5º mas só tem 4), pegar o último
       d.setDate(d.getDate() - 1);
       while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
       return d;
+    };
+
+    const getNextValidMonth = (currentYear, currentMonth, monthsToAdd, referenceMonth) => {
+      let diff = (currentMonth - (referenceMonth || 0)) % monthsToAdd;
+      if (diff < 0) diff += monthsToAdd;
+      let monthsToNext = (monthsToAdd - diff) % monthsToAdd;
+
+      let targetMonth = currentMonth + monthsToNext;
+      let targetYear = currentYear;
+      if (targetMonth > 11) {
+        targetYear += Math.floor(targetMonth / 12);
+        targetMonth = targetMonth % 12;
+      }
+      return { year: targetYear, month: targetMonth };
     };
 
     const checkAndAdvanceRehearsals = async (items) => {
@@ -179,8 +182,9 @@
         // Loop até encontrar data futura
         while (nextDate < now) {
           const currentMonth = nextDate.getMonth();
-          const nextMonthDate = new Date(nextDate.getFullYear(), currentMonth + monthsToAdd, 1);
-          nextDate = getDateFromPattern(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), nth, weekday);
+          const currentYear = nextDate.getFullYear();
+          const next = getNextValidMonth(currentYear, currentMonth + 1, monthsToAdd, item.referenceMonth);
+          nextDate = getDateFromPattern(next.year, next.month, nth, weekday);
           if (nextDate.getFullYear() > now.getFullYear() + 5) break;
         }
 
@@ -211,7 +215,8 @@
               originalDateStr: item.originalDateStr,
               suspendedReason: item.suspendedReason,
               patternNth: item.patternNth,
-              patternWeekday: item.patternWeekday
+              patternWeekday: item.patternWeekday,
+              referenceMonth: item.referenceMonth
             }).eq('id', item.id)
           ));
         } else {
@@ -238,7 +243,8 @@
       const [form, setForm] = useState({
         church: '', city: '', time: '',
         recurrence: 'unico', locationUrl: '', status: 'normal',
-        originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0
+        originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0,
+        referenceMonth: new Date().getMonth()
       });
 
       const [cityForm, setCityForm] = useState({ name: '' });
@@ -300,20 +306,23 @@
         // Calcular a próxima data baseada no padrão escolhido
         const now = new Date();
         now.setHours(0, 0, 0, 0);
+
+        const monthsToAdd = RECURRENCE_MONTHS[form.recurrence] || 1;
+        const start = getNextValidMonth(now.getFullYear(), now.getMonth(), monthsToAdd, form.referenceMonth);
+
         let nextDate = getDateFromPattern(
-          now.getFullYear(),
-          now.getMonth(),
+          start.year,
+          start.month,
           form.patternNth,
           form.patternWeekday
         );
 
         // Se a data calculada já passou, pegar o próximo período de recorrência
         if (nextDate < now) {
-          const monthsToAdd = RECURRENCE_MONTHS[form.recurrence] || 1;
-          const futureMonth = new Date(now.getFullYear(), now.getMonth() + monthsToAdd, 1);
+          const next = getNextValidMonth(start.year, start.month + 1, monthsToAdd, form.referenceMonth);
           nextDate = getDateFromPattern(
-            futureMonth.getFullYear(),
-            futureMonth.getMonth(),
+            next.year,
+            next.month,
             form.patternNth,
             form.patternWeekday
           );
@@ -334,7 +343,8 @@
           originalDateStr: form.status === 'remarcado' ? form.originalDateStr : '',
           suspendedReason: form.status === 'suspenso' ? form.suspendedReason : '',
           patternNth: form.patternNth,
-          patternWeekday: form.patternWeekday
+          patternWeekday: form.patternWeekday,
+          referenceMonth: form.referenceMonth
         };
 
         if (isCloudActive) {
@@ -357,9 +367,9 @@
       const handleAdvanceRehearsal = async (r) => {
         const monthsToAdd = RECURRENCE_MONTHS[r.recurrence] || 1;
         const currentDate = new Date(r.rawDate + 'T00:00:00');
-        const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + monthsToAdd, 1);
 
-        const nextDate = getDateFromPattern(nextMonth.getFullYear(), nextMonth.getMonth(), r.patternNth, r.patternWeekday);
+        const next = getNextValidMonth(currentDate.getFullYear(), currentDate.getMonth() + 1, monthsToAdd, r.referenceMonth);
+        const nextDate = getDateFromPattern(next.year, next.month, r.patternNth, r.patternWeekday);
         const isoDate = nextDate.toISOString().split('T')[0];
 
         const nextData = {
@@ -405,6 +415,11 @@
 
       const getPatternLabel = (nth, weekday) =>
         nth === -1 ? `Último ${DAYS[weekday]}` : `${nth}º ${DAYS[weekday]}`;
+
+      const MONTHS = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      ];
 
       const handleCitySave = async (e) => {
         e.preventDefault();
@@ -760,6 +775,21 @@
                                   </select>
                                 </div>
 
+                                {['bimestral', 'trimestral', 'quadrimestral'].includes(form.recurrence) && (
+                                  <div className="space-y-1 animate-card">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Mês de Referência (Início do Ciclo)</label>
+                                    <select
+                                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none"
+                                      value={form.referenceMonth}
+                                      onChange={e => setForm({ ...form, referenceMonth: parseInt(e.target.value) })}
+                                    >
+                                      {MONTHS.map((m, idx) => (
+                                        <option key={idx} value={idx}>{m}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
                                 <div className="space-y-2 pt-2">
                                   <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Status do Ensaio</label>
                                   <div className="flex gap-2">
@@ -827,7 +857,7 @@
                               </form>
                             ) : (
                               <div className="space-y-4">
-                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0 }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ church: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth() }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
                                 {rehearsals.map(r => (
                                   <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                                     <div className="truncate pr-4">
