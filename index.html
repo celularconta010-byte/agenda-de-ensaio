@@ -359,7 +359,7 @@
           dayOfWeek: DAYS[nextDate.getDay()],
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
           time: form.time,
-          churchName: form.church,
+          churchName: form.church.toUpperCase().trim(),
           city: form.city,
           recurrence: form.recurrence,
           locationUrl: form.locationUrl,
@@ -761,7 +761,7 @@
 
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja <span className="text-red-500">*</span></label>
-                                  <input placeholder="Ex: Central" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300" value={form.church} onChange={e => setForm({ ...form, church: e.target.value })} />
+                                  <input placeholder="Ex: CENTRAL" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300 uppercase" value={form.church} onChange={e => setForm({ ...form, church: e.target.value.toUpperCase() })} />
                                 </div>
 
                                 <div className="space-y-1">
