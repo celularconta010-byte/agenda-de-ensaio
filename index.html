@@ -361,6 +361,12 @@
       }, []);
 
       // --- Configuração Nativa (Capacitor) ---
+      const stateRef = React.useRef({ selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities });
+
+      useEffect(() => {
+        stateRef.current = { selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities };
+      }, [selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities]);
+
       useEffect(() => {
         // Status Bar
         try {
@@ -374,11 +380,11 @@
         // Hardware Back Button
         let backListener;
         try {
-          // Fallback para caso o import via esm.sh falhe ou não sincronize com a bridge nativa
           const AppPlugin = CapApp || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App);
 
           if (AppPlugin) {
             backListener = AppPlugin.addListener('backButton', () => {
+              const { selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities } = stateRef.current;
               const now = Date.now();
 
               if (selectedRehearsal) {
@@ -394,13 +400,10 @@
                 setActiveTab('ensaios');
                 setBrowsingCity(null);
               } else {
-                // Na tela inicial 'ensaios' e nada aberto
                 if (now - lastBackPress.current < 2000) {
                   AppPlugin.exitApp();
                 } else {
                   lastBackPress.current = now;
-                  // Usamos alert como feedback simples já que não há plugin de Toast instalado
-                  // No Android o alert nativo é suficiente para avisar o usuário
                   alert('Pressione novamente para sair');
                 }
               }
@@ -411,13 +414,11 @@
         }
 
         return () => {
-          if (backListener && backListener.then) {
-            backListener.then(h => h.remove());
-          } else if (backListener && backListener.remove) {
-            backListener.remove();
+          if (backListener) {
+            backListener.then ? backListener.then(h => h.remove()) : backListener.remove();
           }
         };
-      }, [selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities]);
+      }, []);
 
       const handleSave = async (e) => {
         e.preventDefault();
