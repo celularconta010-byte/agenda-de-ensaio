@@ -273,6 +273,7 @@
       const [isAdding, setIsAdding] = useState(false);
       const [isManagingCities, setIsManagingCities] = useState(false);
       const [editingId, setEditingId] = useState(null);
+      const lastBackPress = React.useRef(0);
 
       const [form, setForm] = useState({
         churchName: '', city: '', time: '',
@@ -373,27 +374,48 @@
         // Hardware Back Button
         let backListener;
         try {
-          backListener = CapApp.addListener('backButton', ({ canGoBack }) => {
-            if (selectedRehearsal) {
-              handleSelectRehearsal(null);
-            } else if (activeTab === 'igrejas' && browsingCity) {
-              setBrowsingCity(null);
-            } else if (isAdding) {
-              setIsAdding(false);
-            } else if (isManagingCities) {
-              setIsManagingCities(false);
-            } else if (activeTab !== 'ensaios') {
-              setActiveTab('ensaios');
-            } else {
-              CapApp.exitApp();
-            }
-          });
+          // Fallback para caso o import via esm.sh falhe ou não sincronize com a bridge nativa
+          const AppPlugin = CapApp || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App);
+
+          if (AppPlugin) {
+            backListener = AppPlugin.addListener('backButton', () => {
+              const now = Date.now();
+
+              if (selectedRehearsal) {
+                handleSelectRehearsal(null);
+              } else if (isAdding) {
+                setIsAdding(false);
+                setEditingId(null);
+              } else if (isManagingCities) {
+                setIsManagingCities(false);
+              } else if (activeTab === 'igrejas' && browsingCity) {
+                setBrowsingCity(null);
+              } else if (activeTab !== 'ensaios') {
+                setActiveTab('ensaios');
+                setBrowsingCity(null);
+              } else {
+                // Na tela inicial 'ensaios' e nada aberto
+                if (now - lastBackPress.current < 2000) {
+                  AppPlugin.exitApp();
+                } else {
+                  lastBackPress.current = now;
+                  // Usamos alert como feedback simples já que não há plugin de Toast instalado
+                  // No Android o alert nativo é suficiente para avisar o usuário
+                  alert('Pressione novamente para sair');
+                }
+              }
+            });
+          }
         } catch (e) {
           console.warn('App plugin not available', e);
         }
 
         return () => {
-          if (backListener) backListener.remove();
+          if (backListener && backListener.then) {
+            backListener.then(h => h.remove());
+          } else if (backListener && backListener.remove) {
+            backListener.remove();
+          }
         };
       }, [selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities]);
 
