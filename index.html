@@ -285,60 +285,58 @@
 
       const [cityForm, setCityForm] = useState({ name: '' });
 
-      const agendarLembrete = async (rehearsal) => {
+      const sincronizarLembretesDiarios = async () => {
         try {
-          // 1. Verificar/Pedir Permissão
+          // 1. Permissões
           const permission = await LocalNotifications.checkPermissions();
           if (permission.display !== 'granted') {
             const request = await LocalNotifications.requestPermissions();
             if (request.display !== 'granted') {
-              alert("Permissão de notificação negada. O lembrete não poderá ser exibido.");
+              alert("Permissão de notificação negada.");
               return;
             }
           }
 
-          // 2. Preparar a Data
-          // Ex: "2026-02-18" e "19:30"
-          const [year, month, day] = rehearsal.rawDate.split('-').map(Number);
-          const [hour, minute] = rehearsal.time.split(':').map(Number);
+          // 2. Limpar agendamentos anteriores
+          await LocalNotifications.cancel({ notifications: await (await LocalNotifications.getPending()).notifications });
 
-          const scheduledDate = new Date(year, month - 1, day, hour, minute);
+          // 3. Agendar para os próximos 14 dias
+          const notifications = [];
+          const now = new Date();
 
-          // Agendar para 1 hora antes do ensaio
-          const notificationTime = new Date(scheduledDate.getTime() - (60 * 60 * 1000));
+          for (let i = 0; i < 14; i++) {
+            const targetDay = new Date();
+            targetDay.setDate(now.getDate() + i);
+            const isoDate = targetDay.toISOString().split('T')[0];
 
-          // Se 1 hora antes já passou, agendar para agora + 5 segundos (para teste/exemplo imediato) 
-          // ou simplesmente avisar. No caso real, se já passou, talvez seja melhor não agendar.
-          if (notificationTime < new Date()) {
-            if (scheduledDate < new Date()) {
-              alert("Este ensaio já passou!");
-              return;
-            }
-            // Agendar para o horário do ensaio se faltar menos de 1 hora
-            notificationTime.setTime(new Date().getTime() + 10000); // 10s de delay
-          }
+            const dailyEnsaios = rehearsals.filter(r => r.rawDate === isoDate && r.status !== 'suspenso');
 
-          // 3. Agendar
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: `Ensaio Hoje: ${rehearsal.churchName}`,
-                body: `O ensaio em ${rehearsal.city} começa às ${rehearsal.time}.`,
-                id: parseInt(rehearsal.id.toString().substring(0, 8)) || Math.floor(Math.random() * 100000),
-                schedule: { at: notificationTime },
-                sound: 'default',
-                actionTypeId: '',
-                extra: null,
+            if (dailyEnsaios.length > 0) {
+              const names = dailyEnsaios.map(r => r.churchName);
+              const scheduleTime = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate(), 9, 0, 0);
+
+              if (scheduleTime > now) {
+                notifications.push({
+                  title: "Ensaios de Hoje 🎵",
+                  body: `Você tem ensaio em: ${names.join(', ')}.`,
+                  id: 900 + i,
+                  schedule: { at: scheduleTime },
+                  sound: 'default'
+                });
               }
-            ]
-          });
+            }
+          }
 
-          const timeStr = notificationTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-          alert(`Lembrete agendado! Você será avisado às ${timeStr}.`);
+          if (notifications.length > 0) {
+            await LocalNotifications.schedule({ notifications });
+            alert(`Sincronizado! Você receberá um resumo às 09:00 nos dias de ensaio (próximas 2 semanas).`);
+          } else {
+            alert("Nenhum ensaio futuro encontrado para agendar lembretes.");
+          }
 
         } catch (error) {
-          console.error("Erro ao agendar notificação:", error);
-          alert("Erro ao agendar lembrete. Verifique as permissões do sistema.");
+          console.error("Erro na sincronização:", error);
+          alert("Ocorreu um erro ao sincronizar os lembretes.");
         }
       };
 
