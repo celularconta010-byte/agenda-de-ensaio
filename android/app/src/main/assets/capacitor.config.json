@@ -1,5 +1,6 @@
 {
 	"appId": "com.agendaensaio.app",
 	"appName": "Agenda de Ensaio",
-	"webDir": "dist"
+	"webDir": "dist",
+	"bundledWebRuntime": false
 }
