@@ -92,6 +92,7 @@
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
     import { App as CapApp } from 'https://esm.sh/@capacitor/app';
     import { StatusBar, Style } from 'https://esm.sh/@capacitor/status-bar';
+    import { LocalNotifications } from 'https://esm.sh/@capacitor/local-notifications';
 
     const {
       Music, MapPin, Settings, ChevronRight, Plus, ArrowLeft,
@@ -283,6 +284,63 @@
       });
 
       const [cityForm, setCityForm] = useState({ name: '' });
+
+      const agendarLembrete = async (rehearsal) => {
+        try {
+          // 1. Verificar/Pedir Permissão
+          const permission = await LocalNotifications.checkPermissions();
+          if (permission.display !== 'granted') {
+            const request = await LocalNotifications.requestPermissions();
+            if (request.display !== 'granted') {
+              alert("Permissão de notificação negada. O lembrete não poderá ser exibido.");
+              return;
+            }
+          }
+
+          // 2. Preparar a Data
+          // Ex: "2026-02-18" e "19:30"
+          const [year, month, day] = rehearsal.rawDate.split('-').map(Number);
+          const [hour, minute] = rehearsal.time.split(':').map(Number);
+
+          const scheduledDate = new Date(year, month - 1, day, hour, minute);
+
+          // Agendar para 1 hora antes do ensaio
+          const notificationTime = new Date(scheduledDate.getTime() - (60 * 60 * 1000));
+
+          // Se 1 hora antes já passou, agendar para agora + 5 segundos (para teste/exemplo imediato) 
+          // ou simplesmente avisar. No caso real, se já passou, talvez seja melhor não agendar.
+          if (notificationTime < new Date()) {
+            if (scheduledDate < new Date()) {
+              alert("Este ensaio já passou!");
+              return;
+            }
+            // Agendar para o horário do ensaio se faltar menos de 1 hora
+            notificationTime.setTime(new Date().getTime() + 10000); // 10s de delay
+          }
+
+          // 3. Agendar
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                title: `Ensaio Hoje: ${rehearsal.churchName}`,
+                body: `O ensaio em ${rehearsal.city} começa às ${rehearsal.time}.`,
+                id: parseInt(rehearsal.id.toString().substring(0, 8)) || Math.floor(Math.random() * 100000),
+                schedule: { at: notificationTime },
+                sound: 'default',
+                actionTypeId: '',
+                extra: null,
+              }
+            ]
+          });
+
+          const timeStr = notificationTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          alert(`Lembrete agendado! Você será avisado às ${timeStr}.`);
+
+        } catch (error) {
+          console.error("Erro ao agendar notificação:", error);
+          alert("Erro ao agendar lembrete. Verifique as permissões do sistema.");
+        }
+      };
 
       const nextGradeDate = useMemo(() => {
         // Se estamos editando, queremos a grade DAQUELE mês. 
@@ -811,7 +869,19 @@
                           </div>
                           <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName} ({r.city})</p>
                         </div>
-                        <div className="text-gray-600 font-semibold text-sm">{r.time}</div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              agendarLembrete(r);
+                            }}
+                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors active:scale-90"
+                            title="Me lembre deste ensaio"
+                          >
+                            <Bell size={18} />
+                          </button>
+                          <div className="text-gray-600 font-semibold text-sm">{r.time}hs</div>
+                        </div>
                       </div>
                     ))}
                     {upcomingRehearsals.length === 0 && <div className="text-center py-20 text-gray-400">Nenhum ensaio nos próximos 15 dias.</div>}
@@ -867,7 +937,19 @@
                               </div>
                               <p className="text-sm font-semibold text-gray-600 mt-0.5">{r.churchName} ({r.city})</p>
                             </div>
-                            <div className="text-gray-600 font-semibold text-sm">{r.time}</div>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  agendarLembrete(r);
+                                }}
+                                className="p-2 text-gray-400 hover:text-blue-600 transition-colors active:scale-90"
+                                title="Me lembre deste ensaio"
+                              >
+                                <Bell size={18} />
+                              </button>
+                              <div className="text-gray-600 font-semibold text-sm">{r.time}hs</div>
+                            </div>
                           </div>
                         ))}
                         {cityRehearsals.length === 0 && (
