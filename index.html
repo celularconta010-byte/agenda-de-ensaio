@@ -693,24 +693,7 @@
               >
                 <Share2 size={20} className="text-blue-600" />
               </button>
-              <button
-                onClick={async () => {
-                  if (!('Notification' in window)) {
-                    alert("Este navegador não suporta notificações.");
-                    return;
-                  }
-                  const permission = await Notification.requestPermission();
-                  if (permission === 'granted') {
-                    await subscribeUser();
-                  } else {
-                    alert("Notificações bloqueadas pelo usuário.");
-                  }
-                }}
-                className="relative"
-              >
-                <Bell size={20} className={hasRehearsalToday ? "text-blue-600" : "text-gray-400"} />
-                {hasRehearsalToday && <span className="notification-dot"></span>}
-              </button>
+
             </div>
           </header>
 
@@ -790,7 +773,28 @@
               <>
                 {activeTab === 'ensaios' && (
                   <div className="animate-card space-y-4">
-                    <h2 className="text-gray-500 font-bold uppercase text-xs tracking-wider">Próximos 15 dias</h2>
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="text-gray-500 font-bold uppercase text-xs tracking-wider">Próximos 15 dias</h2>
+                      <button
+                        onClick={async () => {
+                          if (!('Notification' in window)) {
+                            alert("Este navegador não suporta notificações.");
+                            return;
+                          }
+                          const permission = await Notification.requestPermission();
+                          if (permission === 'granted') {
+                            await subscribeUser();
+                          } else {
+                            alert("Notificações bloqueadas pelo usuário.");
+                          }
+                        }}
+                        className="relative p-2 -mr-2"
+                        title="Notificações"
+                      >
+                        <Bell size={18} className={hasRehearsalToday ? "text-blue-600" : "text-gray-400"} />
+                        {hasRehearsalToday && <span className="notification-dot" style={{ top: '6px', right: '6px' }}></span>}
+                      </button>
+                    </div>
                     {upcomingRehearsals.map(r => (
                       <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
                         <div>
