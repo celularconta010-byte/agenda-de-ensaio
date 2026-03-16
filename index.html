@@ -900,24 +900,28 @@
                   </div>
                   {upcomingRehearsals.map(r => (
                     <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
-                      <div className="flex-1 pr-2">
-                        <div className="flex items-center gap-2 mb-1.5 h-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 h-4">
                           {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase shadow-sm">Remarcado</span>}
                           {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                         </div>
-                        <div className="flex items-baseline justify-between gap-2 overflow-hidden">
-                          <p className="text-base font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase shrink-0">
+                        <div className="grid grid-cols-[1.5fr_1fr_0.8fr] items-center gap-2">
+                          <div className="truncate">
+                            <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
+                          </div>
+                          <div className="text-center">
                             {r.rawDate === toLocalISOString(new Date()) ? (
-                              <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-sm border border-emerald-200">HOJE</span>
+                              <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
                             ) : (
-                              `${r.date}`
+                              <span className="text-lg font-black text-gray-700 tracking-tighter">{r.date}</span>
                             )}
-                          </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                          </div>
                         </div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mt-1.5 flex items-center gap-1"><MapPin size={12} /> {r.city}</p>
                       </div>
-                      <div className="text-gray-600 font-semibold text-sm">{r.time}</div>
                     </div>
                   ))}
                   {upcomingRehearsals.length === 0 && <div className="text-center py-20 text-gray-400">Nenhum ensaio nos próximos 15 dias.</div>}
@@ -958,18 +962,24 @@
                       </div>
                       {cityRehearsals.map(r => (
                         <div key={r.id} onClick={() => handleSelectRehearsal(r)} className="bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
-                          <div className="flex-1 pr-2 uppercase">
-                            <div className="flex items-center gap-2 mb-1.5 h-4">
-                              {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black animate-pulse">Remarcado</span>}
-                              {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 uppercase font-black">Suspenso</span>}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 h-4">
+                              {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase animate-pulse shadow-sm">Remarcado</span>}
+                              {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                             </div>
-                            <div className="flex items-baseline justify-between gap-2">
-                              <p className="text-base font-black text-blue-600 uppercase tracking-tight leading-tight">{r.churchName}</p>
-                              <span className="text-[10px] font-bold text-gray-500 shrink-0">{r.date}</span>
+                            <div className="grid grid-cols-[1.5fr_1fr_0.8fr] items-center gap-2">
+                              <div className="truncate">
+                                <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
+                              </div>
+                              <div className="text-center">
+                                <span className="text-lg font-black text-gray-700 tracking-tighter">{r.date}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                              </div>
                             </div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mt-1.5 flex items-center gap-1"><MapPin size={12} /> {r.city}</p>
                           </div>
-                          <div className="text-gray-600 font-semibold text-sm">{r.time}</div>
                         </div>
                       ))}
                       {cityRehearsals.length === 0 && (
