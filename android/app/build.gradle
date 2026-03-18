@@ -6,12 +6,11 @@ android {
 
     signingConfigs {
         release {
-            // Essas variáveis devem ser definidas no seu arquivo gradle.properties
-            if (project.hasProperty('RELEASE_STORE_FILE')) {
-                storeFile file(RELEASE_STORE_FILE)
-                storePassword RELEASE_STORE_PASSWORD
-                keyAlias RELEASE_KEY_ALIAS
-                keyPassword RELEASE_KEY_PASSWORD
+            if (project.hasProperty('RELEASE_STORE_FILE') && project.getProperty('RELEASE_STORE_FILE')) {
+                storeFile file(project.getProperty('RELEASE_STORE_FILE'))
+                storePassword project.getProperty('RELEASE_STORE_PASSWORD')
+                keyAlias project.getProperty('RELEASE_KEY_ALIAS')
+                keyPassword project.getProperty('RELEASE_KEY_PASSWORD')
             }
         }
     }
@@ -20,8 +19,8 @@ android {
         applicationId "com.agendaensaio.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.3"
+        versionCode 5
+        versionName "1.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -33,8 +32,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Conecta a build de release com a configuração de assinatura
-            signingConfig signingConfigs.release
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {

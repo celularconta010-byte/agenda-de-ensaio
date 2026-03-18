@@ -284,6 +284,7 @@
       const [isAdding, setIsAdding] = useState(false);
       const [isManagingCities, setIsManagingCities] = useState(false);
       const [editingId, setEditingId] = useState(null);
+      const [searchTerm, setSearchTerm] = useState('');
       const lastBackPress = React.useRef(0);
 
       const [form, setForm] = useState({
@@ -905,20 +906,22 @@
                           {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase shadow-sm">Remarcado</span>}
                           {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                         </div>
-                        <div className="grid grid-cols-3 items-center gap-2">
-                          <div className="truncate">
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex-1 min-w-0">
                             <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
                           </div>
-                          <div className="text-center">
-                            {r.rawDate === toLocalISOString(new Date()) ? (
-                              <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
-                            ) : (
-                              <span className="text-lg font-black text-gray-700 tracking-tighter">{r.date}</span>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <span className="text-sm font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-center min-w-[50px]">
+                              {r.rawDate === toLocalISOString(new Date()) ? (
+                                <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
+                              ) : (
+                                <span className="text-base font-black text-gray-700 tracking-tighter">{r.date}</span>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -967,16 +970,18 @@
                               {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase animate-pulse shadow-sm">Remarcado</span>}
                               {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                             </div>
-                            <div className="grid grid-cols-3 items-center gap-2">
-                              <div className="truncate">
+                            <div className="flex items-center gap-3 w-full">
+                              <div className="flex-1 min-w-0">
                                 <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
                               </div>
-                              <div className="text-center">
-                                <span className="text-lg font-black text-gray-700 tracking-tighter">{r.date}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-sm font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-center min-w-[50px]">
+                                  <span className="text-base font-black text-gray-700 tracking-tighter">{r.date}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1194,10 +1199,34 @@
                               <div className="flex gap-3 pt-4"><button type="button" onClick={() => setIsAdding(false)} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-500">CANCELAR</button><button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">SALVAR</button></div>
                             </form>
                           ) : (
-                            <div className="space-y-4">
-                              <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ churchName: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-6 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
-                              {rehearsals.map(r => (
-                                <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
+                              <div className="space-y-4">
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ churchName: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-4 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                
+                                <div className="relative mb-6">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Buscar por igreja ou cidade..." 
+                                    className="w-full p-4 pl-12 bg-white border border-gray-200 rounded-2xl outline-none focus:border-blue-300 font-medium shadow-sm transition-all"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                  />
+                                  <Lucide.Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                  {searchTerm && (
+                                    <button 
+                                      onClick={() => setSearchTerm('')}
+                                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                      <Lucide.X size={18} />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {rehearsals.filter(r => 
+                                  !searchTerm || 
+                                  r.churchName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  r.city.toLowerCase().includes(searchTerm.toLowerCase())
+                                ).map(r => (
+                                  <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                                   <div className="truncate pr-4">
                                     <div className="flex items-center gap-1.5">
                                       <p className="text-lg font-black text-gray-800 leading-tight">{r.churchName}</p>
