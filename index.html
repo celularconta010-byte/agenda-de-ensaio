@@ -505,7 +505,7 @@
 
         // Validações
         if (!form.churchName.trim()) {
-          alert("Por favor, preencha o Nome da Igreja.");
+          alert("Por favor, preencha a Casa de Oração.");
           return;
         }
         if (!form.city) {
@@ -850,7 +850,7 @@
                 </div>
               )}
               <div className="mb-2">
-                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em]">Nome da Igreja</span>
+                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em]">Casa de Oração</span>
                 <h2 className="text-4xl font-black text-blue-900 leading-tight mt-1">{selectedRehearsal.churchName}</h2>
               </div>
               <p className="text-gray-500 mb-6 font-bold text-xs uppercase tracking-wider flex items-center gap-1"><MapPin size={12} className="text-blue-500" /> {selectedRehearsal.city}</p>
@@ -900,19 +900,19 @@
                     </button>
                   </div>
                   {upcomingRehearsals.map(r => (
-                    <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
+                    <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2 h-4">
                           {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase shadow-sm">Remarcado</span>}
                           {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                         </div>
-                        <div className="flex items-center gap-3 w-full">
+                        <div className="flex items-center gap-2 w-full">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
+                            <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-center min-w-[50px]">
+                            <div className="text-center min-w-[45px]">
                               {r.rawDate === toLocalISOString(new Date()) ? (
                                 <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
                               ) : (
@@ -964,19 +964,19 @@
                         <button onClick={() => setBrowsingCity(null)} className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full">Trocar Cidade</button>
                       </div>
                       {cityRehearsals.map(r => (
-                        <div key={r.id} onClick={() => handleSelectRehearsal(r)} className="bg-white p-5 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                        <div key={r.id} onClick={() => handleSelectRehearsal(r)} className="bg-white p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2 h-4">
                               {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase animate-pulse shadow-sm">Remarcado</span>}
                               {r.status === 'suspenso' && <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 font-black uppercase shadow-sm">Suspenso</span>}
                             </div>
-                            <div className="flex items-center gap-3 w-full">
+                            <div className="flex items-center gap-2 w-full">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight truncate">{r.churchName}</p>
+                                <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
                               </div>
                               <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-center min-w-[50px]">
+                                <div className="text-center min-w-[45px]">
                                   <span className="text-base font-black text-gray-700 tracking-tighter">{r.date}</span>
                                 </div>
                                 <div className="text-right">
@@ -1029,7 +1029,7 @@
                               <h3 className="text-center font-bold text-blue-600 uppercase text-xs">Dados do Ensaio</h3>
 
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Nome da Igreja <span className="text-red-500">*</span></label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2">Casa de Oração <span className="text-red-500">*</span></label>
                                 <input
                                   placeholder="Ex: CENTRAL"
                                   className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-300 uppercase font-bold"
@@ -1227,9 +1227,9 @@
                                   r.city.toLowerCase().includes(searchTerm.toLowerCase())
                                 ).map(r => (
                                   <div key={r.id} className={`bg-white p-5 rounded-3xl flex items-center justify-between border border-gray-200 shadow-sm transition-all hover:shadow-md ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
-                                  <div className="truncate pr-4">
+                                  <div className="pr-4">
                                     <div className="flex items-center gap-1.5">
-                                      <p className="text-lg font-black text-gray-800 leading-tight">{r.churchName}</p>
+                                      <p className="text-lg font-black text-gray-800 leading-tight whitespace-normal">{r.churchName}</p>
                                       {r.status === 'remarcado' && <AlertCircle size={14} className="text-orange-500 shrink-0" />}
                                       {r.status === 'suspenso' && <XCircle size={14} className="text-red-500 shrink-0" />}
                                     </div>
