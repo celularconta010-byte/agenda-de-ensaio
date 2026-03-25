@@ -96,7 +96,7 @@
     import { LocalNotifications } from 'https://esm.sh/@capacitor/local-notifications';
 
     const {
-      Music, MapPin, Settings, ChevronRight, Plus, ArrowLeft,
+      Music, MapPin, Settings, ChevronRight, ChevronDown, Plus, ArrowLeft,
       Trash2, Bell, Navigation, Info, Save, Lock, LogIn,
       Pencil, CalendarClock, AlertCircle, CloudCheck, CloudOff, Loader2, Repeat, ExternalLink, CalendarDays, ChevronLeft, RefreshCw, CheckCircle2, XCircle, Share2
     } = Lucide;
@@ -272,6 +272,8 @@
     };
 
     const App = () => {
+      const [daysFilter, setDaysFilter] = useState(15);
+      const [isDaysFilterOpen, setIsDaysFilterOpen] = useState(false);
       const [activeTab, setActiveTab] = useState('ensaios');
       const [rehearsals, setRehearsals] = useState([]);
       const [cities, setCities] = useState([]);
@@ -631,12 +633,12 @@
 
       const upcomingRehearsals = useMemo(() => {
         const now = new Date(); now.setHours(0, 0, 0, 0);
-        const limit = new Date(); limit.setDate(now.getDate() + 15);
+        const limit = new Date(); limit.setDate(now.getDate() + daysFilter);
         return rehearsals.filter(r => {
           const rd = new Date(r.rawDate + 'T00:00:00');
           return rd >= now && rd <= limit;
         });
-      }, [rehearsals]);
+      }, [rehearsals, daysFilter]);
 
       const cityRehearsals = useMemo(() => {
         if (!browsingCity) return [];
@@ -882,7 +884,38 @@
               {activeTab === 'ensaios' && (
                 <div className="animate-card space-y-4">
                   <div className="flex items-center justify-between px-1">
-                    <h2 className="text-gray-500 font-bold uppercase text-xs tracking-wider">Próximos 15 dias</h2>
+                    <div className="flex items-center gap-1 text-gray-500 font-bold uppercase text-xs tracking-wider z-10">
+                      <h2>Próximos</h2>
+                      <div className="relative">
+                        <button 
+                          onClick={() => setIsDaysFilterOpen(!isDaysFilterOpen)}
+                          className="flex items-center gap-1 text-blue-600 bg-blue-50/80 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors"
+                        >
+                          {daysFilter} DIAS
+                          <ChevronDown size={14} className={`transition-transform duration-200 ${isDaysFilterOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isDaysFilterOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsDaysFilterOpen(false)}></div>
+                            <div className="absolute top-full mt-1.5 left-0 w-24 bg-white border border-gray-100 rounded-xl shadow-xl shadow-blue-900/5 z-50 overflow-hidden animate-card">
+                              {[8, 15, 30].map(days => (
+                                <button
+                                  key={days}
+                                  className={`w-full text-left px-3 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${daysFilter === days ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}
+                                  onClick={() => {
+                                    setDaysFilter(days);
+                                    setIsDaysFilterOpen(false);
+                                  }}
+                                >
+                                  {days} DIAS
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
                     <button
                       onClick={async () => {
                         await sincronizarLembretesDiarios();
