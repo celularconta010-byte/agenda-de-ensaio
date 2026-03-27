@@ -300,6 +300,8 @@
 
       const sincronizarLembretesDiarios = async (isManual = true) => {
         try {
+          const isAndroid = window.Capacitor && window.Capacitor.getPlatform() === 'android';
+
           // 1. Permissões
           const permission = await LocalNotifications.checkPermissions();
           if (permission.display !== 'granted') {
@@ -315,10 +317,41 @@
             }
           }
 
-          // 2. Limpar agendamentos anteriores
+          // 2. Permissão de Alarme Exato (Android 14+)
+          if (isAndroid && typeof LocalNotifications.checkExactNotificationSetting === 'function') {
+            const exactPerm = await LocalNotifications.checkExactNotificationSetting();
+            if (exactPerm.exact_alarm !== 'granted') {
+              if (isManual) {
+                const wantExact = confirm("Para agendar lembretes no horário correto, o aplicativo precisa da permissão de 'Alarmes e Lembretes'. Deseja abrir as configurações para conceder?");
+                if (wantExact) {
+                  await LocalNotifications.changeExactNotificationSetting();
+                }
+                return;
+              } else {
+                return;
+              }
+            }
+          }
+
+          // 3. Criar Canal de Notificação (Android 8.0+)
+          if (isAndroid) {
+            try {
+              await LocalNotifications.createChannel({
+                id: 'lembretes_ensaios',
+                name: 'Lembretes de Ensaios',
+                description: 'Notificações de ensaios diários',
+                importance: 4,
+                visibility: 1
+              });
+            } catch (e) {
+              console.warn("Erro ao criar canal:", e);
+            }
+          }
+
+          // 4. Limpar agendamentos anteriores
           await LocalNotifications.cancel({ notifications: await (await LocalNotifications.getPending()).notifications });
 
-          // 3. Agendar para os próximos 14 dias
+          // 5. Agendar para os próximos 14 dias
           const notifications = [];
           const now = new Date();
 
@@ -339,7 +372,8 @@
                   body: `Você tem ensaio em: ${names.join(', ')}.`,
                   id: 900 + i,
                   schedule: { at: scheduleTime },
-                  sound: 'default'
+                  sound: 'default',
+                  channelId: 'lembretes_ensaios'
                 });
               }
             }
@@ -920,9 +954,15 @@
                       onClick={async () => {
                         await sincronizarLembretesDiarios();
                         // Também manter o push para garantir
-                        const permission = await Notification.requestPermission();
-                        if (permission === 'granted') {
-                          await subscribeUser();
+                        try {
+                          if ('Notification' in window) {
+                            const permission = await Notification.requestPermission();
+                            if (permission === 'granted') {
+                              await subscribeUser();
+                            }
+                          }
+                        } catch (e) {
+                          console.warn('Notification API falhou ou não suportada:', e);
                         }
                       }}
                       className="relative p-2 -mr-2"
@@ -944,16 +984,16 @@
                             <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-center min-w-[45px]">
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <div className="text-right">
                               {r.rawDate === toLocalISOString(new Date()) ? (
-                                <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
+                                <span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
                               ) : (
-                                <span className="text-base font-black text-gray-700 tracking-tighter">{r.date}</span>
+                                <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm border border-blue-100">{r.dayOfWeek.substring(0, 3)} {r.date}</span>
                               )}
                             </div>
                             <div className="text-right">
-                              <span className="text-xs font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                              <span className="text-xs font-black text-black bg-gray-100 px-2 py-1 rounded-lg border border-gray-200 shadow-sm">{r.time}</span>
                             </div>
                           </div>
                         </div>
@@ -1008,12 +1048,16 @@
                                 <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
                               </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-center min-w-[45px]">
-                                  <span className="text-base font-black text-gray-700 tracking-tighter">{r.date}</span>
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <div className="text-right">
+                                  {r.rawDate === toLocalISOString(new Date()) ? (
+                                    <span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm border border-emerald-200">HOJE</span>
+                                  ) : (
+                                    <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm border border-blue-100">{r.dayOfWeek.substring(0, 3)} {r.date}</span>
+                                  )}
                                 </div>
                                 <div className="text-right">
-                                  <span className="text-xs font-black text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">{r.time}</span>
+                                  <span className="text-xs font-black text-black bg-gray-100 px-2 py-1 rounded-lg border border-gray-200 shadow-sm">{r.time}</span>
                                 </div>
                               </div>
                             </div>
