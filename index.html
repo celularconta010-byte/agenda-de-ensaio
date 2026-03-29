@@ -23,6 +23,9 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -97,7 +100,7 @@
 
     const {
       Music, MapPin, Settings, ChevronRight, ChevronDown, Plus, ArrowLeft,
-      Trash2, Bell, Navigation, Info, Save, Lock, LogIn,
+      Trash2, Bell, Navigation, Info, Save, Lock, LogIn, Camera, ImagePlus, Check,
       Pencil, CalendarClock, AlertCircle, CloudCheck, CloudOff, Loader2, Repeat, ExternalLink, CalendarDays, ChevronLeft, RefreshCw, CheckCircle2, XCircle, Share2
     } = Lucide;
 
@@ -295,12 +298,72 @@
       const [searchTerm, setSearchTerm] = useState('');
       const lastBackPress = React.useRef(0);
 
-      const [form, setForm] = useState({
-        churchName: '', city: '', time: '',
-        recurrence: 'unico', locationUrl: '', status: 'normal',
-        originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0,
-        referenceMonth: new Date().getMonth(), overrideDate: ''
-      });
+      // --- Image Crop Logic ---
+      const [cropModalOpen, setCropModalOpen] = useState(false);
+      const [imageToCrop, setImageToCrop] = useState(null);
+      const [croppedImageBlob, setCroppedImageBlob] = useState(null);
+      const [croppedImagePreview, setCroppedImagePreview] = useState(null);
+      const [isUploading, setIsUploading] = useState(false);
+      const cropperRef = React.useRef(null);
+      const cropperInstance = React.useRef(null);
+
+      const handleImageSelect = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setImageToCrop(reader.result);
+            setCropModalOpen(true);
+          };
+          reader.readAsDataURL(e.target.files[0]);
+        }
+      };
+
+      const initCropper = () => {
+        if (cropperRef.current) {
+          if (cropperInstance.current) {
+            cropperInstance.current.destroy();
+          }
+          cropperInstance.current = new window.Cropper(cropperRef.current, {
+            aspectRatio: 16 / 9,
+            viewMode: 1,
+            autoCropArea: 1,
+          });
+        }
+      };
+
+      useEffect(() => {
+        if (cropModalOpen && imageToCrop) {
+          setTimeout(initCropper, 100);
+        } else {
+          if (cropperInstance.current) {
+            cropperInstance.current.destroy();
+            cropperInstance.current = null;
+          }
+        }
+      }, [cropModalOpen, imageToCrop]);
+
+      const cropImage = () => {
+        if (cropperInstance.current) {
+          const canvas = cropperInstance.current.getCroppedCanvas({ width: 1200 });
+          setCroppedImagePreview(canvas.toDataURL('image/jpeg', 0.8));
+          canvas.toBlob((blob) => {
+            setCroppedImageBlob(blob);
+            setCropModalOpen(false);
+          }, 'image/jpeg', 0.8);
+        }
+      };
+
+      const cancelCrop = () => {
+        setCropModalOpen(false);
+        setImageToCrop(null);
+      };
+
+        const [form, setForm] = useState({
+          churchName: '', city: '', time: '',
+          recurrence: 'unico', locationUrl: '', status: 'normal',
+          originalDateStr: '', suspendedReason: '', patternNth: 1, patternWeekday: 0,
+          referenceMonth: new Date().getMonth(), overrideDate: '', image_url: ''
+        });
 
       const [cityForm, setCityForm] = useState({ name: '' });
 
@@ -509,18 +572,9 @@
               const { selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities } = stateRef.current;
               const now = Date.now();
 
-              if (selectedRehearsal) {
-                handleSelectRehearsal(null);
-              } else if (isAdding) {
-                setIsAdding(false);
-                setEditingId(null);
-              } else if (isManagingCities) {
-                setIsManagingCities(false);
-              } else if (activeTab === 'igrejas' && browsingCity) {
-                setBrowsingCity(null);
-              } else if (activeTab !== 'ensaios') {
-                setActiveTab('ensaios');
-                setBrowsingCity(null);
+              if (selectedRehearsal || isAdding || isManagingCities || (activeTab === 'igrejas' && browsingCity) || activeTab !== 'ensaios') {
+                // Se temos algo aberto para "voltar", usamos o histórico do navegador
+                window.history.back();
               } else {
                 if (now - lastBackPress.current < 2000) {
                   AppPlugin.exitApp();
@@ -535,12 +589,49 @@
           console.warn('App plugin not available', e);
         }
 
+        // Histórico do Navegador (sincronizar com botões de voltar do sistema)
+        const handlePopState = (event) => {
+          const { selectedRehearsal, activeTab, browsingCity, isAdding, isManagingCities } = stateRef.current;
+          
+          if (selectedRehearsal) {
+            handleSelectRehearsal(null);
+          } else if (isAdding) {
+            setIsAdding(false);
+            setEditingId(null);
+          } else if (isManagingCities) {
+            setIsManagingCities(false);
+          } else if (activeTab === 'igrejas' && browsingCity) {
+            setBrowsingCity(null);
+          } else if (activeTab !== 'ensaios') {
+            setActiveTab('ensaios');
+            setBrowsingCity(null);
+          }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+
         return () => {
           if (backListener) {
             backListener.then ? backListener.then(h => h.remove()) : backListener.remove();
           }
+          window.removeEventListener('popstate', handlePopState);
         };
       }, []);
+
+      // Push history state whenever a view opens
+      useEffect(() => {
+        const hasOpenView = !!(selectedRehearsal || isAdding || isManagingCities || (activeTab === 'igrejas' && browsingCity) || activeTab !== 'ensaios');
+        
+        // Verifica se já estamos em um estado de "modal" no histórico para evitar loops
+        const currentHistoryState = window.history.state;
+        
+        if (hasOpenView && (!currentHistoryState || currentHistoryState.appView !== 'modal')) {
+          window.history.pushState({ appView: 'modal' }, '');
+        } else if (!hasOpenView && currentHistoryState && currentHistoryState.appView === 'modal') {
+          // Se fechamos tudo manualmente, limpamos o histórico adicional se necessário
+          // mas geralmente o usuário clicando no App ou no X não deve desincronizar
+        }
+      }, [selectedRehearsal, isAdding, isManagingCities, browsingCity, activeTab]);
 
       const handleSave = async (e) => {
         e.preventDefault();
@@ -593,6 +684,25 @@
 
         const isoDate = toLocalISOString(nextDate);
 
+        let finalImageUrl = form.image_url;
+        if (croppedImageBlob && isCloudActive) {
+          setIsUploading(true);
+          try {
+            const compressedFile = await window.imageCompression(croppedImageBlob, { maxSizeMB: 0.2, maxWidthOrHeight: 1200, useWebWorker: true });
+            const fileName = `${Date.now()}.jpg`;
+            const { data: uploadData, error: uploadError } = await supabase.storage.from('rehearsals').upload(fileName, compressedFile, { contentType: 'image/jpeg' });
+            if (uploadError) throw uploadError;
+            const { data: { publicUrl } } = supabase.storage.from('rehearsals').getPublicUrl(fileName);
+            finalImageUrl = publicUrl;
+          } catch (err) {
+            console.error(err);
+            alert("Erro ao subir a imagem.");
+            setIsUploading(false);
+            return;
+          }
+          setIsUploading(false);
+        }
+
         const data = {
           dayOfWeek: DAYS[nextDate.getDay()],
           date: isoDate.split('-').reverse().join('/').substring(0, 5),
@@ -608,7 +718,8 @@
           patternNth: form.patternNth,
           patternWeekday: form.patternWeekday,
           referenceMonth: form.referenceMonth,
-          overrideDate: form.overrideDate || null
+          overrideDate: form.overrideDate || null,
+          image_url: finalImageUrl
         };
 
         if (isCloudActive) {
@@ -639,7 +750,7 @@
           setRehearsals(updated);
           localStorage.setItem('agenda_ensaios_data', JSON.stringify(updated));
         }
-        setIsAdding(false); setEditingId(null);
+        setIsAdding(false); setEditingId(null); setCroppedImagePreview(null); setCroppedImageBlob(null); imageToCrop && setImageToCrop(null);
       };
 
       const handleAdvanceRehearsal = async (r) => {
@@ -846,7 +957,7 @@
 
         <main className="flex-1 p-4 overflow-y-auto bg-gray-100/30">
           {selectedRehearsal ? (
-            <div className="animate-card bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
+            <div className={`animate-card rounded-3xl p-6 border border-gray-200 shadow-sm relative overflow-hidden bg-white`} style={selectedRehearsal.image_url ? { backgroundImage: `linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%), url(${selectedRehearsal.image_url})`, backgroundSize: 'cover', backgroundPosition: 'top' } : {}}>
               <div className="flex gap-2 mb-4">
                 <span className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full border border-blue-100 flex items-center gap-1">
                   <Repeat size={10} /> {getPatternLabel(selectedRehearsal.patternNth, selectedRehearsal.patternWeekday)}
@@ -891,11 +1002,10 @@
                   )}
                 </div>
               )}
-              <div className="mb-2">
-                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em]">Casa de Oração</span>
-                <h2 className="text-4xl font-black text-blue-900 leading-tight mt-1">{selectedRehearsal.churchName}</h2>
-              </div>
-              <p className="text-gray-500 mb-6 font-bold text-xs uppercase tracking-wider flex items-center gap-1"><MapPin size={12} className="text-blue-500" /> {selectedRehearsal.city}</p>
+              <div className={`inline-block py-2 px-4 rounded-full border mb-4 shadow-xl ${selectedRehearsal.image_url ? 'bg-white/95 border-white/50 backdrop-blur-lg' : 'bg-blue-50 border-blue-100'}`}>
+                  <h3 className="text-2xl font-black text-blue-600 leading-tight uppercase drop-shadow-sm">{selectedRehearsal.churchName}</h3>
+                  <p className="text-gray-500 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1 mt-1"><MapPin size={12} className="text-blue-500" /> {selectedRehearsal.city}</p>
+                </div>
 
               <div className="grid grid-cols-3 gap-2 text-center bg-gray-50 p-4 rounded-2xl mb-6 border border-gray-200">
                 <div><p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Data</p><p className="font-bold text-gray-800">{selectedRehearsal.date}</p></div>
@@ -979,7 +1089,7 @@
                     </button>
                   </div>
                   {upcomingRehearsals.map(r => (
-                    <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`}>
+                    <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white relative overflow-hidden p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`} style={r.image_url ? { backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0) 100%), url(${r.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2 h-4">
                           {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase shadow-sm">Remarcado</span>}
@@ -987,8 +1097,12 @@
                         </div>
                         <div className="flex items-center gap-2 w-full">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
+                            <div className={`inline-block py-2 px-3 rounded-2xl border transition-all shadow-lg ${r.image_url ? 'bg-white/95 border-white/50 backdrop-blur-md' : 'bg-blue-50 border-blue-100'}`}>
+                              <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
+                              <p className={`text-[9px] font-bold uppercase tracking-wide mt-1 flex items-center gap-1 ${r.image_url ? 'text-gray-600' : 'text-gray-400'}`}>
+                                <MapPin size={10} className={r.image_url ? 'text-blue-500' : ''} /> {r.city}
+                              </p>
+                            </div>
                           </div>
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
                             <div className="text-right">
@@ -1043,7 +1157,7 @@
                         <button onClick={() => setBrowsingCity(null)} className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full">Trocar Cidade</button>
                       </div>
                       {cityRehearsals.map(r => (
-                        <div key={r.id} onClick={() => handleSelectRehearsal(r)} className="bg-white p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                        <div className={`bg-white relative overflow-hidden p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors`} style={r.image_url ? { backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0) 100%), url(${r.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2 h-4">
                               {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase animate-pulse shadow-sm">Remarcado</span>}
@@ -1051,8 +1165,12 @@
                             </div>
                             <div className="flex items-center gap-2 w-full">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-1 flex items-center gap-1"><MapPin size={10} /> {r.city}</p>
+                                <div className={`inline-block py-2 px-3 rounded-2xl border transition-all shadow-lg ${r.image_url ? 'bg-white/95 border-white/50 backdrop-blur-md' : 'bg-blue-50 border-blue-100'}`}>
+                                  <p className="text-sm font-black text-blue-600 uppercase tracking-tight leading-tight whitespace-normal">{r.churchName}</p>
+                                  <p className={`text-[9px] font-bold uppercase tracking-wide mt-1 flex items-center gap-1 ${r.image_url ? 'text-gray-600' : 'text-gray-400'}`}>
+                                    <MapPin size={10} className={r.image_url ? 'text-blue-500' : ''} /> {r.city}
+                                  </p>
+                                </div>
                               </div>
                               <div className="flex flex-col items-end gap-1.5 shrink-0">
                                 <div className="text-right">
@@ -1279,11 +1397,32 @@
                                 <input placeholder="Digite o endereço ou cole o link do Google Maps" className="w-full p-4 bg-blue-50/50 border border-blue-100 rounded-2xl outline-none text-blue-700 text-sm" value={form.locationUrl} onChange={e => setForm({ ...form, locationUrl: e.target.value })} />
                               </div>
 
-                              <div className="flex gap-3 pt-4"><button type="button" onClick={() => setIsAdding(false)} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-500">CANCELAR</button><button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">SALVAR</button></div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 flex items-center gap-1"><ImagePlus size={10} /> Foto Panorâmica (Opcional)</label>
+                                <div className="border border-dashed border-gray-300 bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 relative overflow-hidden">
+                                  {(croppedImagePreview || form.image_url) ? (
+                                    <>
+                                      <img src={croppedImagePreview || form.image_url} alt="Capa" className="absolute object-cover w-full h-full" />
+                                      <div className="z-10 bg-white/80 backdrop-blur-sm p-3 rounded-xl flex items-center gap-2 font-bold text-xs text-gray-700 shadow-sm border border-gray-100">
+                                        <img src={croppedImagePreview || form.image_url} alt="Capa" className="w-16 h-9 object-cover rounded-lg shadow-sm" />
+                                        <span>Imagem Selecionada</span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-gray-400 flex flex-col items-center gap-1">
+                                      <Camera size={24} />
+                                      <span className="text-xs font-bold uppercase tracking-wider">Aperte para carregar</span>
+                                    </div>
+                                  )}
+                                  <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onChange={handleImageSelect} />
+                                </div>
+                              </div>
+
+                              <div className="flex gap-3 pt-4"><button type="button" onClick={() => { setIsAdding(false); setCroppedImagePreview(null); setCroppedImageBlob(null); }} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-500">CANCELAR</button><button type="submit" disabled={isUploading} className="flex-1 bg-blue-600 disabled:bg-blue-300 text-white py-4 rounded-2xl font-bold shadow-lg">{isUploading ? "SALVANDO..." : "SALVAR"}</button></div>
                             </form>
                           ) : (
                               <div className="space-y-4">
-                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ churchName: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '' }); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-4 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
+                                <button onClick={() => { setEditingId(null); setIsAdding(true); setForm({ churchName: '', city: cities[0]?.name || '', time: '', recurrence: 'unico', status: 'normal', originalDateStr: '', suspendedReason: '', locationUrl: '', patternNth: 1, patternWeekday: 0, referenceMonth: new Date().getMonth(), overrideDate: '', image_url: '' }); setCroppedImagePreview(null); setCroppedImageBlob(null); }} className="w-full bg-blue-600 text-white font-bold p-5 rounded-2xl flex items-center justify-center gap-2 mb-4 shadow-xl"><Plus size={24} /> NOVO ENSAIO</button>
                                 
                                 <div className="relative mb-6">
                                   <input 
@@ -1320,7 +1459,7 @@
                                   </div>
                                   <div className="flex gap-1 shrink-0">
                                     <button title="Avançar Mês (Reset Status)" onClick={() => handleAdvanceRehearsal(r)} className="text-green-600 p-2 hover:bg-green-50 rounded-lg"><RefreshCw size={18} /></button>
-                                    <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, churchName: r.churchName }); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
+                                    <button onClick={() => { setEditingId(r.id); setIsAdding(true); setForm({ ...r, churchName: r.churchName, image_url: r.image_url || '' }); setCroppedImagePreview(null); setCroppedImageBlob(null); }} className="text-blue-600 p-2 hover:bg-blue-50 rounded-lg"><Pencil size={18} /></button>
                                     <button onClick={async () => { if (confirm('Excluir ensaio?')) { if (isCloudActive) { await supabase.from('ensaios').delete().eq('id', r.id); } else { setRehearsals(rehearsals.filter(x => x.id !== r.id)); } } }} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
                                   </div>
                                 </div>
@@ -1374,6 +1513,21 @@
               </div>
             </>
           )}
+        {cropModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex flex-col">
+            <div className="flex-1 min-h-0 relative flex items-center justify-center p-4">
+              <img ref={cropperRef} src={imageToCrop} alt="Cortar" className="max-w-full max-h-full block" />
+            </div>
+            <div className="bg-white rounded-t-3xl p-6 pb-safe safe-area-bottom shadow-2xl">
+              <h3 className="font-bold text-gray-800 mb-4 text-center uppercase text-sm tracking-wider">Ajuste o Enquadramento</h3>
+              <p className="text-xs text-center text-gray-500 mb-6 italic">A imagem será salva em formato 16:9 (Panorâmico).</p>
+              <div className="flex gap-3">
+                <button type="button" onClick={cancelCrop} className="flex-1 bg-gray-100 py-4 rounded-2xl font-bold text-gray-500">CANCELAR</button>
+                <button type="button" onClick={cropImage} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2"><Check size={20}/> CONFIRMAR</button>
+              </div>
+            </div>
+          </div>
+        )}
         </main>
 
         {!selectedRehearsal && (
