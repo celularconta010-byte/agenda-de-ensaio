@@ -754,6 +754,7 @@
       };
 
       const handleAdvanceRehearsal = async (r) => {
+        if (!confirm(`Tem certeza que deseja avançar o ensaio de "${r.churchName}" para o próximo mês? Isso resetará o status para Normal.`)) return;
         const monthsToAdd = RECURRENCE_MONTHS[r.recurrence] || 1;
         const currentDate = parseLocalDate(r.rawDate);
 
