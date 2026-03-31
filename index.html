@@ -1157,7 +1157,7 @@
                         <button onClick={() => setBrowsingCity(null)} className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-full">Trocar Cidade</button>
                       </div>
                       {cityRehearsals.map(r => (
-                        <div className={`bg-white relative overflow-hidden p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-colors`} style={r.image_url ? { backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0) 100%), url(${r.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
+                        <div key={r.id} onClick={() => handleSelectRehearsal(r)} className={`bg-white relative overflow-hidden p-4 rounded-3xl border border-gray-200 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.98] ${r.status === 'suspenso' ? 'opacity-75 grayscale-[0.3]' : ''}`} style={r.image_url ? { backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.05) 10%, rgba(255,255,255,0) 100%), url(${r.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2 h-4">
                               {r.status === 'remarcado' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-black uppercase animate-pulse shadow-sm">Remarcado</span>}
