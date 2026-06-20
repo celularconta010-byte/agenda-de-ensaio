@@ -1,4 +1,4 @@
-package com.agendaensaio.app;
+package com.agendaensaio.appnovo;
 
 import android.os.Bundle;
 import androidx.core.view.WindowCompat;
